@@ -74,114 +74,6 @@ should_export_csv = arguments.exportupdates
 
 local_versions_path = os.path.join(dir_path, "versions.json")
 
-def _validate_args():
-    if all(flag is None for flag in [should_auto_add, should_export_csv]):
-        raise TypeError("At least one argument in actions group is required")
-
-    if os.path.isfile(hactoolnet_path) is False:
-        raise ArgumentError(
-            hactoolnet_arg,
-            f"{'hactoolnet.exe' if os.name == 'nt' else 'hactoolnet'} not found",
-        )
-
-    if os.path.isfile(title_keys_path) is False:
-        raise ArgumentError(titlekeys_arg, "file not found")
-
-    if should_auto_add:
-        if ryujinx_dir is None:
-            raise ArgumentError(ryujinxdir_arg, "required when have --autoadd")
-        if nsp_dir is None:
-            raise ArgumentError(nspdir_arg, "required when have --autoadd")
-        if os.path.isdir(nsp_dir) is False:
-            raise ArgumentError(nspdir_arg, "directory not existed")
-
-    if should_export_csv:
-        if versions_path is not None and os.path.isfile(versions_path) is False:
-            raise ArgumentError(versionspath_arg, "file not found")
-        if nsp_dir is None:
-            raise ArgumentError(nspdir_arg, "required when have --exportupdates")
-        if os.path.isdir(nsp_dir) is False:
-            raise ArgumentError(nspdir_arg, "directory not existed")
-
-
-def export_updates_csv():
-    versions_map = {}
-
-    path = local_versions_path
-
-    if versions_path is not None:
-        path = versions_path
-    elif os.path.isfile(local_versions_path) is False:
-        print("Downloading versions.json")
-        target_path = os.path.join(dir_path, "versions.json")
-        versions_url = "https://github.com/blawar/titledb/raw/master/versions.json"
-        result = urllib.request.urlretrieve(versions_url, target_path)
-        path = result[0]
-        print(f"Downloaded to {path}")
-
-    print("Exporting updates.csv")
-
-    with open(path, encoding="utf-8") as f:
-        versions_map = json.load(f)
-        f.close()
-
-    output_csv = "Filename, Title ID, Version Code, Latest Version Code, Latest Updated Date, Update Available\n"
-
-    nsp_files = glob.glob(os.path.join(nsp_dir, "**", "*.nsp"), recursive=True)
-    total_files = len(nsp_files)
-    for index, nsp_file in enumerate(nsp_files):
-        __progress_bar(index + 1, total_files)
-
-        args = [
-            hactoolnet_path,
-            "-k",
-            title_keys_path,
-            "-t",
-            "pfs0",
-            nsp_file,
-            "--listtitles",
-        ]
-
-        try:
-            output = subprocess.check_output(args).decode("utf-8")
-        except CalledProcessError:
-            print(f"Error when process {nsp_file}")
-            continue
-
-        if "Patch" not in output:
-            # print(f"{nsp_file} is not Patch")
-            continue
-
-        title_id_match = re.search("0100[a-zA-Z0-9]{12} v", output)
-        if title_id_match is None:
-            print(f"No title id is found for {nsp_file}")
-            break
-        title_id = output[title_id_match.start() : title_id_match.end()]
-        title_id = title_id.lower().replace(" v", "")
-
-        version_code_match = re.search(" v[0-9]+ ", output)
-        version_code = output[version_code_match.start() : version_code_match.end()]
-        version_code = version_code.strip().replace("v", "")
-
-        application_id = title_id[:13] + "0" + title_id[14:]
-
-        filename = os.path.basename(nsp_file)
-        latest_version_code = ""
-        latest_version_date = ""
-        is_update_available = None
-        try:
-            latest_version = list(versions_map[application_id].items())[-1]
-            latest_version_code = latest_version[0]
-            latest_version_date = latest_version[1]
-            is_update_available = latest_version_code != version_code
-        except KeyError:
-            print(f"{filename} data not found")
-        output_csv += f'"{filename}", {title_id}, {version_code}, {latest_version_code}, {latest_version_date}, {is_update_available}\n'
-
-    with io.open(os.path.join(dir_path, "updates.csv"), "w", encoding="utf-8") as f:
-        f.write(output_csv)
-        print(f"Exported to {f.name}")
-
 
 def generate_ryujinx_json():
     ryujinx_update_json_map = {}
@@ -303,6 +195,142 @@ def generate_ryujinx_json():
     print("\nFinished exporting dlc.json")
 
 
+def export_updates_csv():
+    versions_map = {}
+
+    path = local_versions_path
+
+    if versions_path is not None:
+        path = versions_path
+    elif os.path.isfile(local_versions_path) is False:
+        print("Downloading versions.json")
+        target_path = os.path.join(dir_path, "versions.json")
+        versions_url = "https://github.com/blawar/titledb/raw/master/versions.json"
+        result = urllib.request.urlretrieve(versions_url, target_path)
+        path = result[0]
+        print(f"Downloaded to {path}")
+
+    print("Exporting updates.csv")
+
+    with open(path, encoding="utf-8") as f:
+        versions_map = json.load(f)
+        f.close()
+
+    output_csv = "Filename, Title ID, Version Code, Latest Version Code, Latest Updated Date, Update Available\n"
+
+    nsp_files = glob.glob(os.path.join(nsp_dir, "**", "*.nsp"), recursive=True)
+    total_files = len(nsp_files)
+    for index, nsp_file in enumerate(nsp_files):
+        __progress_bar(index + 1, total_files)
+
+        args = [
+            hactoolnet_path,
+            "-k",
+            title_keys_path,
+            "-t",
+            "pfs0",
+            nsp_file,
+            "--listtitles",
+        ]
+
+        try:
+            output = subprocess.check_output(args).decode("utf-8")
+        except CalledProcessError:
+            print(f"Error when process {nsp_file}")
+            continue
+
+        if "Patch" not in output:
+            # print(f"{nsp_file} is not Patch")
+            continue
+
+        title_id_match = re.search("0100[a-zA-Z0-9]{12} v", output)
+        if title_id_match is None:
+            print(f"No title id is found for {nsp_file}")
+            break
+        title_id = output[title_id_match.start() : title_id_match.end()]
+        title_id = title_id.lower().replace(" v", "")
+
+        version_code_match = re.search(" v[0-9]+ ", output)
+        version_code = output[version_code_match.start() : version_code_match.end()]
+        version_code = version_code.strip().replace("v", "")
+
+        application_id = title_id[:13] + "0" + title_id[14:]
+
+        filename = os.path.basename(nsp_file)
+        latest_version_code = ""
+        latest_version_date = ""
+        is_update_available = None
+        try:
+            latest_version = list(versions_map[application_id].items())[-1]
+            latest_version_code = latest_version[0]
+            latest_version_date = latest_version[1]
+            is_update_available = latest_version_code != version_code
+        except KeyError:
+            print(f"{filename} data not found")
+        output_csv += f'"{filename}", {title_id}, {version_code}, {latest_version_code}, {latest_version_date}, {is_update_available}\n'
+
+    with io.open(os.path.join(dir_path, "updates.csv"), "w", encoding="utf-8") as f:
+        f.write(output_csv)
+        print(f"Exported to {f.name}")
+
+
+def _validate_args():
+    if all(flag is None for flag in [should_auto_add, should_export_csv]):
+        raise TypeError("At least one argument in actions group is required")
+
+    if os.path.isfile(hactoolnet_path) is False:
+        raise ArgumentError(
+            hactoolnet_arg,
+            f"{'hactoolnet.exe' if os.name == 'nt' else 'hactoolnet'} not found",
+        )
+
+    if os.path.isfile(title_keys_path) is False:
+        raise ArgumentError(titlekeys_arg, "file not found")
+
+    if should_auto_add:
+        if ryujinx_dir is None:
+            raise ArgumentError(ryujinxdir_arg, "required when have --autoadd")
+        if nsp_dir is None:
+            raise ArgumentError(nspdir_arg, "required when have --autoadd")
+        if os.path.isdir(nsp_dir) is False:
+            raise ArgumentError(nspdir_arg, "directory not existed")
+
+    if should_export_csv:
+        if versions_path is not None and os.path.isfile(versions_path) is False:
+            raise ArgumentError(versionspath_arg, "file not found")
+        if nsp_dir is None:
+            raise ArgumentError(nspdir_arg, "required when have --exportupdates")
+        if os.path.isdir(nsp_dir) is False:
+            raise ArgumentError(nspdir_arg, "directory not existed")
+
+
+def _get_save_map_from_imkvdb():
+    save_map = {}
+    bcat_save_map = {}
+    imkvdb_path = os.path.join(
+        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", "imkvdb.arc"
+    )
+    with io.open(imkvdb_path, "rb") as f:
+        f.seek(0x8)
+        total_entries = int.from_bytes(f.read(0x1), "big")
+        print(f"total_entries: {total_entries}")
+        f.seek(0xC)
+        for _ in range(total_entries):
+            f.seek(0xC, 1)
+            k = f.read(64).hex()[1:17]
+            title_id = (
+                k[15:11:-1] + k[9:11] + k[7:9] + k[5:7] + k[3:5] + k[1:3] + k[0] + k[11]
+            )
+            value = f.read(64).hex()[:2]
+
+            # If a title id has 2 values, the later is the BCAT save entry
+            if save_map.get(title_id) is None:
+                save_map[title_id] = value
+            else:
+                bcat_save_map[title_id] = value
+    return save_map, bcat_save_map
+
+
 def __progress_bar(current, total, bar_length=20, suffix=""):
     fraction = current / total
 
@@ -318,6 +346,7 @@ def __progress_bar(current, total, bar_length=20, suffix=""):
     print(f"Progress: [{arrow}{padding}] {int(fraction*100)}%", end=ending)
 
 
+
 _validate_args()
 
 if should_auto_add:
@@ -325,3 +354,6 @@ if should_auto_add:
 
 if should_export_csv:
     export_updates_csv()
+
+if should_sync_save:
+    
