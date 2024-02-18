@@ -27,7 +27,7 @@ exportupdates_arg = actions_group.add_argument(
     "-e",
     "--exportupdates",
     action="store_true",
-    help="Export csv file with update available status for update files. Requires --nspdir, --versionspath",
+    help="Export csv file with update available status for update files. Requires --nspdir",
 )
 parser.add_argument("-v", "--version", action="version", version="%(prog)s v0.2")
 ryujinxdir_arg = parser.add_argument(
