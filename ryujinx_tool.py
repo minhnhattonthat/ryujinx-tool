@@ -12,8 +12,10 @@ import json
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-parser = argparse.ArgumentParser(description="A tool for auto adding updates & dlc")
-actions_group = parser.add_argument_group("actions")
+parser = argparse.ArgumentParser(
+    prog="ryujinx_tool", description="A tool for better manage Ryujinx"
+)
+actions_group = parser.add_argument_group("actions", "Requires at least one")
 autoadd_arg = actions_group.add_argument(
     "-a",
     "--autoadd",
@@ -26,10 +28,7 @@ exportupdates_arg = actions_group.add_argument(
     action="store_true",
     help="Export csv file with update available status for update files. Requires --nspdir, --versionspath",
 )
-syncyuzu_arg = actions_group.add_argument(
-    "-s", "--syncyuzu", action="store_true", help="Sync Ryujinx save files with yuzu"
-)
-parser.add_argument("--version", action="version", version="%(prog)s 0.2")
+parser.add_argument("-v", "--version", action="version", version="%(prog)s v0.2")
 ryujinxdir_arg = parser.add_argument(
     "-r",
     "--ryujinxdir",
@@ -79,32 +78,27 @@ def _validate_args():
         raise TypeError("At least one argument in actions group is required")
 
     if os.path.isfile(hactoolnet_path) is False:
-        raise ArgumentError(hactoolnet_arg, f"{'hactoolnet.exe' if os.name == 'nt' else 'hactoolnet'} not found")
+        raise ArgumentError(
+            hactoolnet_arg,
+            f"{'hactoolnet.exe' if os.name == 'nt' else 'hactoolnet'} not found",
+        )
 
     if os.path.isfile(title_keys_path) is False:
         raise ArgumentError(titlekeys_arg, "prod.keys not found")
 
     if should_auto_add:
         if ryujinx_dir is None:
-            raise ArgumentError(
-                ryujinxdir_arg, "required when have --autoadd"
-            )
+            raise ArgumentError(ryujinxdir_arg, "required when have --autoadd")
         if nsp_dir is None:
-            raise ArgumentError(
-                nspdir_arg, "required when have --autoadd"
-            )
+            raise ArgumentError(nspdir_arg, "required when have --autoadd")
         if os.path.isdir(nsp_dir) is False:
             raise ArgumentError(nspdir_arg, "directory not existed")
 
     if should_export_csv:
         if versions_path is None:
-            raise ArgumentError(
-                versionspath_arg, "required when have --exportupdates"
-            )
+            raise ArgumentError(versionspath_arg, "required when have --exportupdates")
         if nsp_dir is None:
-            raise ArgumentError(
-                nspdir_arg, "required when have --exportupdates"
-            )
+            raise ArgumentError(nspdir_arg, "required when have --exportupdates")
         if os.path.isdir(nsp_dir) is False:
             raise ArgumentError(nspdir_arg, "directory not existed")
 
@@ -259,7 +253,9 @@ def generate_ryujinx_json():
         output_dir = os.path.join(ryujinx_dir, "games", application_id)
 
         __progress_bar(
-            index + 1, total_updates, suffix=f"\nExporting {output_dir}\\updates.json"
+            index + 1,
+            total_updates,
+            suffix=f"\nExporting {os.path.join(output_dir, 'updates.json')}",
         )
 
         if not os.path.isdir(output_dir):
@@ -279,7 +275,9 @@ def generate_ryujinx_json():
         output_dir = os.path.join(ryujinx_dir, "games", application_id)
 
         __progress_bar(
-            index + 1, total_dlcs, suffix=f"\nExporting {output_dir}\\dlc.json"
+            index + 1,
+            total_dlcs,
+            suffix=f"\nExporting {os.path.join(output_dir, 'dlc.json')}",
         )
 
         if not os.path.isdir(output_dir):
@@ -297,7 +295,11 @@ def __progress_bar(current, total, bar_length=20, suffix=""):
     arrow = int(fraction * bar_length - 1) * "-" + ">"
     padding = int(bar_length - len(arrow)) * " "
 
-    ending = "\n" if current == total else "\r" if suffix == "" else f'{suffix[:117].ljust(120, " ")}\033[F'
+    ending = (
+        "\n"
+        if current == total
+        else "\r" if suffix == "" else f'{suffix[:117].ljust(120, " ")}\033[F'
+    )
 
     print(f"Progress: [{arrow}{padding}] {int(fraction*100)}%", end=ending)
 
