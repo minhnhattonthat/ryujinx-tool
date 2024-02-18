@@ -9,6 +9,7 @@ import io
 from subprocess import CalledProcessError
 import re
 import json
+import urllib.request
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -45,8 +46,7 @@ versionspath_arg = parser.add_argument(
     "-p",
     "--versionspath",
     metavar="<file>",
-    help="File path of versions.json from titledb. Default to current folder.",
-    default=os.path.join(dir_path, "versions.json"),
+    help="File path of versions.json from titledb. If not provide will search in current folder or download from its source.",
 )
 hactoolnet_arg = parser.add_argument(
     "--hactoolnet",
@@ -72,6 +72,7 @@ versions_path = arguments.versionspath
 should_auto_add = arguments.autoadd
 should_export_csv = arguments.exportupdates
 
+local_versions_path = os.path.join(dir_path, "versions.json")
 
 def _validate_args():
     if all(flag is None for flag in [should_auto_add, should_export_csv]):
@@ -84,7 +85,7 @@ def _validate_args():
         )
 
     if os.path.isfile(title_keys_path) is False:
-        raise ArgumentError(titlekeys_arg, "prod.keys not found")
+        raise ArgumentError(titlekeys_arg, "file not found")
 
     if should_auto_add:
         if ryujinx_dir is None:
@@ -95,8 +96,8 @@ def _validate_args():
             raise ArgumentError(nspdir_arg, "directory not existed")
 
     if should_export_csv:
-        if versions_path is None:
-            raise ArgumentError(versionspath_arg, "required when have --exportupdates")
+        if versions_path is not None and os.path.isfile(versions_path) is False:
+            raise ArgumentError(versionspath_arg, "file not found")
         if nsp_dir is None:
             raise ArgumentError(nspdir_arg, "required when have --exportupdates")
         if os.path.isdir(nsp_dir) is False:
@@ -104,10 +105,23 @@ def _validate_args():
 
 
 def export_updates_csv():
+    versions_map = {}
+
+    path = local_versions_path
+
+    if versions_path is not None:
+        path = versions_path
+    elif os.path.isfile(local_versions_path) is False:
+        print("Downloading versions.json")
+        target_path = os.path.join(dir_path, "versions.json")
+        versions_url = "https://github.com/blawar/titledb/raw/master/versions.json"
+        result = urllib.request.urlretrieve(versions_url, target_path)
+        path = result[0]
+        print(f"Downloaded to {path}")
+
     print("Exporting updates.csv")
 
-    versions_map = {}
-    with open(versions_path, encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         versions_map = json.load(f)
         f.close()
 
