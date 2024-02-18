@@ -10,47 +10,58 @@ from subprocess import CalledProcessError
 import re
 import json
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
 parser = argparse.ArgumentParser(description="A tool for auto adding updates & dlc")
-required_group = parser.add_argument_group("required")
-required_group.add_argument(
+actions_group = parser.add_argument_group("actions")
+autoadd_arg = actions_group.add_argument(
+    "-a",
+    "--autoadd",
+    action="store_true",
+    help="Automatically add updates & DLCs to Ryujinx. Requires --nspdir, --ryujinx",
+)
+exportupdates_arg = actions_group.add_argument(
+    "-e",
+    "--exportupdates",
+    action="store_true",
+    help="Export csv file with update available status for update files. Requires --nspdir, --versionspath",
+)
+syncyuzu_arg = actions_group.add_argument(
+    "-s", "--syncyuzu", action="store_true", help="Sync Ryujinx save files with yuzu"
+)
+parser.add_argument("--version", action="version", version="%(prog)s 0.2")
+ryujinxdir_arg = parser.add_argument(
     "-r",
     "--ryujinxdir",
     metavar="<dir>",
     help="Directory path of Ryujinx filesystem folder.",
-    required=True,
 )
-required_group.add_argument(
+nspdir_arg = parser.add_argument(
     "-n",
     "--nspdir",
     metavar="<dir>",
     help="Directory path of where nsp update & dlc files are stored.",
-    required=True,
 )
-parser.add_argument(
+versionspath_arg = parser.add_argument(
     "-p",
     "--versionspath",
     metavar="<file>",
     help="File path of versions.json from titledb. Default to current folder.",
-    default=r".\versions.json",
+    default=os.path.join(dir_path, "versions.json"),
 )
-parser.add_argument(
+hactoolnet_arg = parser.add_argument(
     "--hactoolnet",
     metavar="<file>",
-    help="File path of hactoolnet.exe. Default to curreent folder.",
-    default=r".\hactoolnet.exe",
+    help=f"File path of {'hactoolnet.exe' if os.name == 'nt' else 'hactoolnet'}. Default to current folder.",
+    default=os.path.join(
+        dir_path, "hactoolnet.exe" if os.name == "nt" else "hactoolnet"
+    ),
 )
-parser.add_argument(
+titlekeys_arg = parser.add_argument(
     "--titlekeys",
     metavar="<file>",
     help="File path of prod.keys. Default to curreent folder.",
-    default=r".\prod.keys",
-)
-parser.add_argument(
-    "-e",
-    "--exportupdates",
-    action="store_true",
-    help="Export csv file with update available status for update files. Required --versionspath"
+    default=os.path.join(dir_path, "prod.keys"),
 )
 arguments = parser.parse_args()
 
@@ -59,18 +70,44 @@ nsp_dir = arguments.nspdir
 hactoolnet_path = arguments.hactoolnet
 title_keys_path = arguments.titlekeys
 versions_path = arguments.versionspath
-should_export_updates_csv = arguments.exportupdates
+should_auto_add = arguments.autoadd
+should_export_csv = arguments.exportupdates
+
 
 def _validate_args():
-    if os.path.isdir(nsp_dir) is False:
-        raise ArgumentError("nspdir", "--nspdir is not an existed directory")
+    if all(flag is None for flag in [should_auto_add, should_export_csv]):
+        raise TypeError("At least one argument in actions group is required")
+
     if os.path.isfile(hactoolnet_path) is False:
-        raise ArgumentError("hactoolnet", "hactoolnet.exe is missing")
+        raise ArgumentError(hactoolnet_arg, f"{'hactoolnet.exe' if os.name == 'nt' else 'hactoolnet'} not found")
+
     if os.path.isfile(title_keys_path) is False:
-        raise ArgumentError("titlekeys", "prod.keys is missing")
-    if should_export_updates_csv:
+        raise ArgumentError(titlekeys_arg, "prod.keys not found")
+
+    if should_auto_add:
+        if ryujinx_dir is None:
+            raise ArgumentError(
+                ryujinxdir_arg, "required when have --autoadd"
+            )
+        if nsp_dir is None:
+            raise ArgumentError(
+                nspdir_arg, "required when have --autoadd"
+            )
+        if os.path.isdir(nsp_dir) is False:
+            raise ArgumentError(nspdir_arg, "directory not existed")
+
+    if should_export_csv:
         if versions_path is None:
-            raise ArgumentError("versionpath", "--versionpath is required when have --exportupdates")
+            raise ArgumentError(
+                versionspath_arg, "required when have --exportupdates"
+            )
+        if nsp_dir is None:
+            raise ArgumentError(
+                nspdir_arg, "required when have --exportupdates"
+            )
+        if os.path.isdir(nsp_dir) is False:
+            raise ArgumentError(nspdir_arg, "directory not existed")
+
 
 def export_updates_csv():
     print("Exporting updates.csv")
@@ -82,7 +119,7 @@ def export_updates_csv():
 
     output_csv = "Filename, Title ID, Version Code, Latest Version Code, Latest Updated Date, Update Available\n"
 
-    nsp_files = glob.glob(fr"{nsp_dir}\**\*.nsp", recursive=True)
+    nsp_files = glob.glob(os.path.join(nsp_dir, "**", "*.nsp"), recursive=True)
     total_files = len(nsp_files)
     for index, nsp_file in enumerate(nsp_files):
         __progress_bar(index + 1, total_files)
@@ -133,16 +170,16 @@ def export_updates_csv():
             print(f"{filename} data not found")
         output_csv += f'"{filename}", {title_id}, {version_code}, {latest_version_code}, {latest_version_date}, {is_update_available}\n'
 
-    with io.open(r".\updates.csv", "w", encoding="utf-8") as f:
+    with io.open(os.path.join(dir_path, "updates.csv"), "w", encoding="utf-8") as f:
         f.write(output_csv)
-    print(r"Exported .\updates.csv")
+        print(f"Exported to {f.name}")
 
 
 def generate_ryujinx_json():
     ryujinx_update_json_map = {}
     ryujinx_dlc_json_map = {}
 
-    nsp_files = glob.glob(fr"{nsp_dir}\**\*.nsp", recursive=True)
+    nsp_files = glob.glob(os.path.join(nsp_dir, "**", "*.nsp"), recursive=True)
     total_files = len(nsp_files)
     for index, nsp_file in enumerate(nsp_files):
         suffix = f"\nProcessing {nsp_file}"
@@ -219,14 +256,18 @@ def generate_ryujinx_json():
     for index, (application_id, ryujinx_update_jsons) in enumerate(
         ryujinx_update_json_map.items()
     ):
-        output_dir = rf"{ryujinx_dir}\games\{application_id}"
+        output_dir = os.path.join(ryujinx_dir, "games", application_id)
+
         __progress_bar(
             index + 1, total_updates, suffix=f"\nExporting {output_dir}\\updates.json"
         )
+
         if not os.path.isdir(output_dir):
             os.makedirs(output_dir)
 
-        with io.open(rf"{output_dir}\updates.json", "w", encoding="utf-8") as f:
+        with io.open(
+            os.path.join(output_dir, "updates.json"), "w", encoding="utf-8"
+        ) as f:
             f.write(json.dumps(ryujinx_update_jsons, indent=2))
     print("\nFinished exporting updates.json")
 
@@ -235,7 +276,7 @@ def generate_ryujinx_json():
     for index, (application_id, ryujinx_dlc_jsons) in enumerate(
         ryujinx_dlc_json_map.items()
     ):
-        output_dir = rf"{ryujinx_dir}\games\{application_id}"
+        output_dir = os.path.join(ryujinx_dir, "games", application_id)
 
         __progress_bar(
             index + 1, total_dlcs, suffix=f"\nExporting {output_dir}\\dlc.json"
@@ -244,7 +285,7 @@ def generate_ryujinx_json():
         if not os.path.isdir(output_dir):
             os.makedirs(output_dir)
 
-        with io.open(rf"{output_dir}\dlc.json", "w", encoding="utf-8") as f:
+        with io.open(os.path.join(output_dir, "dlc.json"), "w", encoding="utf-8") as f:
             f.write(json.dumps(ryujinx_dlc_jsons, indent=2))
 
     print("\nFinished exporting dlc.json")
@@ -256,13 +297,15 @@ def __progress_bar(current, total, bar_length=20, suffix=""):
     arrow = int(fraction * bar_length - 1) * "-" + ">"
     padding = int(bar_length - len(arrow)) * " "
 
-    ending = "\n" if current == total else f'{suffix[:117].ljust(120, " ")}\033[F'
+    ending = "\n" if current == total else "\r" if suffix == "" else f'{suffix[:117].ljust(120, " ")}\033[F'
 
     print(f"Progress: [{arrow}{padding}] {int(fraction*100)}%", end=ending)
 
+
 _validate_args()
 
-generate_ryujinx_json()
+if should_auto_add:
+    generate_ryujinx_json()
 
-if should_export_updates_csv:
+if should_export_csv:
     export_updates_csv()
