@@ -12,7 +12,7 @@ A tool for better manage Ryujinx
 ## Usage
 
 ```text
-usage: ryujinx_tool [-h] [-a] [-e] [-v] [-r <dir>] [-n <dir>] [-p <file>] [--hactoolnet <file>] [--titlekeys <file>]
+usage: ryujinx_tool [-h] [-a] [-e] [-s <priority>] [-v] [-r <dir>] [-y <dir>] [-n <dir>] [-p <file>] [--hactoolnet <file>] [--titlekeys <file>]
 
 A tool for better manage Ryujinx
 
@@ -21,6 +21,8 @@ options:
   -v, --version         show program's version number and exit
   -r <dir>, --ryujinxdir <dir>
                         Directory path of Ryujinx filesystem folder.
+  -y <dir>, --yuzudir <dir>
+                        Directory path of yuzu user folder.
   -n <dir>, --nspdir <dir>
                         Directory path of where nsp update & dlc files are stored.
   -p <file>, --versionspath <file>
@@ -33,6 +35,10 @@ actions:
 
   -a, --autoadd         Automatically add updates & DLCs to Ryujinx. Requires --nspdir, --ryujinx
   -e, --exportupdates   Export csv file with update available status for update files. Requires --nspdir
+  -s <priority>, --syncsaves <priority>
+                        Export csv file with update available status for update files.
+                        Priority includes yuzu, ryujinx or newer. Add '~' before priority (e.g. ~yuzu) to use simulation mode.
+                        Requires --ryujinxdir, --yuzudir
 ```
 
 ## Examples
