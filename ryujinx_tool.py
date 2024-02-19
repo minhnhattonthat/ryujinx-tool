@@ -1,40 +1,67 @@
 """tool for ryujinx"""
 
-import glob
-import os
-import subprocess
+# pylint: disable=C0301,C0116
+
 import argparse
-from argparse import ArgumentError
+from argparse import ArgumentError, _get_action_name
+import glob
 import io
-from subprocess import CalledProcessError
-import re
 import json
+import os
+import re
+import shutil
+import subprocess
+from subprocess import CalledProcessError
 import urllib.request
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-parser = argparse.ArgumentParser(
-    prog="ryujinx_tool", description="A tool for better manage Ryujinx"
+YUZU_PRIORIY = "yuzu"
+RYUJINX_PRIORIY = "ryujinx"
+NEWER_PRIORITY = "newer"
+
+priority_choices = [YUZU_PRIORIY, RYUJINX_PRIORIY, NEWER_PRIORITY]
+full_priority_choices = priority_choices + list(
+    map(lambda x: "~" + x, priority_choices)
 )
-actions_group = parser.add_argument_group("actions", "Requires at least one")
-autoadd_arg = actions_group.add_argument(
+
+parser = argparse.ArgumentParser(
+    prog="ryujinx_tool",
+    description="A tool for better manage Ryujinx",
+    formatter_class=argparse.RawTextHelpFormatter,
+)
+actions_arg_group = parser.add_argument_group("actions", "Requires at least one")
+autoadd_arg = actions_arg_group.add_argument(
     "-a",
     "--autoadd",
     action="store_true",
     help="Automatically add updates & DLCs to Ryujinx. Requires --nspdir, --ryujinx",
 )
-exportupdates_arg = actions_group.add_argument(
+exportupdates_arg = actions_arg_group.add_argument(
     "-e",
     "--exportupdates",
     action="store_true",
     help="Export csv file with update available status for update files. Requires --nspdir",
 )
-parser.add_argument("-v", "--version", action="version", version="%(prog)s v0.2")
+syncsaves_arg = actions_arg_group.add_argument(
+    "-s",
+    "--syncsaves",
+    metavar="<priority>",
+    choices=full_priority_choices,
+    help="""Export csv file with update available status for update files.\nPriority includes yuzu, ryujinx or newer. Add '~' before priority (e.g. ~yuzu) to use simulation mode.\nRequires --ryujinxdir, --yuzudir""",
+)
+parser.add_argument("-v", "--version", action="version", version="%(prog)s v0.3")
 ryujinxdir_arg = parser.add_argument(
     "-r",
     "--ryujinxdir",
     metavar="<dir>",
     help="Directory path of Ryujinx filesystem folder.",
+)
+yuzudir_arg = parser.add_argument(
+    "-y",
+    "--yuzudir",
+    metavar="<dir>",
+    help="Directory path of yuzu user folder.",
 )
 nspdir_arg = parser.add_argument(
     "-n",
@@ -65,12 +92,16 @@ titlekeys_arg = parser.add_argument(
 arguments = parser.parse_args()
 
 ryujinx_dir = arguments.ryujinxdir
+yuzu_dir = arguments.yuzudir
 nsp_dir = arguments.nspdir
 hactoolnet_path = arguments.hactoolnet
 title_keys_path = arguments.titlekeys
 versions_path = arguments.versionspath
 should_auto_add = arguments.autoadd
 should_export_csv = arguments.exportupdates
+should_sync_saves = arguments.syncsaves is not None
+sync_priority = arguments.syncsaves
+should_simulate_sync = should_sync_saves and arguments.syncsaves[0] == "~"
 
 local_versions_path = os.path.join(dir_path, "versions.json")
 
@@ -274,8 +305,212 @@ def export_updates_csv():
         print(f"Exported to {f.name}")
 
 
+def sync_saves():
+    print("Syncing saves")
+
+    save_map, _ = _get_save_map_from_imkvdb()
+    yuzu_save_dirname = _reverse_hex_str(_get_yuzu_profile_uuid()).upper()
+    yuzu_save_dir = os.path.join(
+        yuzu_dir, "nand", "user", "save", "0000000000000000", yuzu_save_dirname
+    )
+    ryujinx_save_dir = os.path.join(ryujinx_dir, "bis", "user", "save")
+    total_saves = len(save_map.items())
+
+    for index, (title_id, ryujinx_save_dirname) in enumerate(save_map.items()):
+        yuzu_game_save_dir = os.path.join(yuzu_save_dir, title_id.upper())
+        ryujinx_game_save_dir = os.path.join(
+            ryujinx_save_dir, ryujinx_save_dirname, "0"
+        )
+
+        _sync_dir(yuzu_game_save_dir, ryujinx_game_save_dir, title_id)
+        __progress_bar(index + 1, total_saves)
+
+    print("Saves synced")
+
+
+def _get_save_map_from_imkvdb():
+    save_map = {}
+    bcat_save_map = {}
+    imkvdb_path = os.path.join(
+        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", "imkvdb.arc"
+    )
+    with io.open(imkvdb_path, "rb") as f:
+        f.seek(0x8)
+        total_entries = int.from_bytes(f.read(0x1), "big")
+        f.seek(0xC)
+        for _ in range(total_entries):
+            f.seek(0xC, 1)
+            k = f.read(0x40).hex()[:16]
+            title_id = _reverse_hex_str(k)
+            v = f.read(0x40).hex()[:16]
+            save_dirname = _reverse_hex_str(v)
+
+            if title_id == "0000000000000000":
+                # system title
+                continue
+            # If a title id has 2 values, the later is the BCAT save entry
+            if save_map.get(title_id) is None:
+                save_map[title_id] = save_dirname
+            else:
+                bcat_save_map[title_id] = save_dirname
+    return save_map, bcat_save_map
+
+
+def _get_yuzu_profile_uuid():
+    profiles_path = os.path.join(
+        yuzu_dir,
+        "nand",
+        "system",
+        "save",
+        "8000000000000010",
+        "su",
+        "avators",
+        "profiles.dat",
+    )
+    profile_uuid = None
+    with io.open(profiles_path, "rb") as f:
+        f.seek(0x10)
+        profile_uuid = f.read(0x10).hex()
+    return profile_uuid
+
+
+def _reverse_hex_str(hex_str: str):
+    output = None
+    l = [hex_str[i : i + 2] for i in range(0, len(hex_str), 2)]
+    l.reverse()
+    output = "".join(l)
+    return output
+
+
+def _sync_dir(_yuzu_dir, _ryujinx_dir, title_id):
+    log_suffix = "- [Simulate]" if should_simulate_sync else "-"
+    reason = "Unknown error."
+    src = None
+    dst = None
+    title = next(
+        (t for t in os.listdir(nsp_dir) if title_id.lower() in t.lower()), None
+    )
+    if YUZU_PRIORIY in sync_priority:
+        src = _yuzu_dir
+        dst = _ryujinx_dir
+        reason = "yuzu save is priority."
+
+    elif RYUJINX_PRIORIY in sync_priority:
+        src = _ryujinx_dir
+        dst = _yuzu_dir
+        reason = "Ryujinx save is priority."
+
+    elif os.path.isdir(_yuzu_dir) is False:
+        src = _ryujinx_dir
+        dst = _yuzu_dir
+        reason = "yuzu save not existed."
+
+    else:
+        yuzu_listdir = os.listdir(_yuzu_dir)
+        ryujinx_listdir = os.listdir(_ryujinx_dir)
+
+        if len(yuzu_listdir) == 0:
+            if len(ryujinx_listdir) > 0:
+                src = _ryujinx_dir
+                dst = _yuzu_dir
+                reason = "yuzu save is empty."
+            else:
+                reason = "yuzu & Ryujinx saves are both empty."
+
+        elif len(ryujinx_listdir) == 0:
+            if len(yuzu_listdir) > 0:
+                src = _yuzu_dir
+                dst = _ryujinx_dir
+                reason = "Ryujinx save is empty."
+            else:
+                reason = "yuzu & Ryujinx saves are both empty."
+
+        elif (
+            os.stat(_newest_file_in_folder(_yuzu_dir)).st_mtime
+            - os.stat(_newest_file_in_folder(_ryujinx_dir)).st_mtime
+            > 1
+        ):
+            src = _yuzu_dir
+            dst = _ryujinx_dir
+            reason = "yuzu save is newer."
+
+        elif (
+            os.stat(_newest_file_in_folder(_ryujinx_dir)).st_mtime
+            - os.stat(_newest_file_in_folder(_yuzu_dir)).st_mtime
+            > 1
+        ):
+            src = _ryujinx_dir
+            dst = _yuzu_dir
+            reason = "Ryujinx save is newer."
+
+        else:
+            reason = "yuzu & Ryujinx saves are synced."
+
+    if src is not None and dst is not None:
+        if should_simulate_sync is False:
+            if os.path.isdir(dst) is False:
+                os.makedirs(dst)
+            _back_up_save(dst)
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+        print(
+            log_suffix,
+            title if title is not None else title_id,
+            reason,
+            f"Copy from\n\t{src} to\n\t{dst}.",
+        )
+    else:
+        print(log_suffix, title if title is not None else title_id, reason)
+
+
+def _back_up_save(save_dir):
+    src = save_dir
+    is_ryujinx = False
+    if os.path.basename(save_dir) == "0":
+        src = os.path.dirname(save_dir)
+        is_ryujinx = True
+    bk_folder = os.path.basename(src)
+    if is_ryujinx:
+        dst = os.path.join(dir_path, "ryujinx-save-backup", bk_folder)
+    else:
+        dst = os.path.join(dir_path, "yuzu-save-backup", bk_folder)
+    if os.path.isdir(dst) is False:
+        os.makedirs(dst)
+    print(src, dst)
+    shutil.copytree(src, dst, dirs_exist_ok=True)
+
+
+def _newest_file_in_folder(root_dir):
+    newest_file = None
+    newest_file_date = None
+
+    for topdir, _, files in os.walk(root_dir):
+        if len(files) == 0:
+            continue
+        dir_newest_file = sorted(
+            files,
+            key=lambda f, topdir=topdir: os.stat(os.path.join(topdir, f)).st_mtime,
+            reverse=True,
+        )[0]
+        dir_newest_file = os.path.join(topdir, dir_newest_file)
+        dir_newest_file_date = os.stat(dir_newest_file).st_mtime
+        if newest_file_date is None or dir_newest_file_date > newest_file_date:
+            newest_file = dir_newest_file
+            newest_file_date = dir_newest_file_date
+
+    if newest_file is not None:
+        return newest_file
+
+    # if folder doesn't have any file, then it doesn't matter which dir to compare
+    first_dir = os.listdir(root_dir)[0]
+    return os.path.join(root_dir, first_dir)
+
+
+# pylint: disable=W0212
 def _validate_args():
-    if all(flag is None for flag in [should_auto_add, should_export_csv]):
+    if all(
+        getattr(arguments, action.dest) is None
+        for action in actions_arg_group._group_actions
+    ):
         raise TypeError("At least one argument in actions group is required")
 
     if os.path.isfile(hactoolnet_path) is False:
@@ -289,9 +524,13 @@ def _validate_args():
 
     if should_auto_add:
         if ryujinx_dir is None:
-            raise ArgumentError(ryujinxdir_arg, "required when have --autoadd")
+            raise ArgumentError(
+                ryujinxdir_arg, f"required when having {_get_action_name(autoadd_arg)}"
+            )
         if nsp_dir is None:
-            raise ArgumentError(nspdir_arg, "required when have --autoadd")
+            raise ArgumentError(
+                nspdir_arg, f"required when having {_get_action_name(autoadd_arg)}"
+            )
         if os.path.isdir(nsp_dir) is False:
             raise ArgumentError(nspdir_arg, "directory not existed")
 
@@ -299,36 +538,23 @@ def _validate_args():
         if versions_path is not None and os.path.isfile(versions_path) is False:
             raise ArgumentError(versionspath_arg, "file not found")
         if nsp_dir is None:
-            raise ArgumentError(nspdir_arg, "required when have --exportupdates")
+            raise ArgumentError(
+                nspdir_arg,
+                f"required when having {_get_action_name(exportupdates_arg)}",
+            )
         if os.path.isdir(nsp_dir) is False:
             raise ArgumentError(nspdir_arg, "directory not existed")
 
-
-def _get_save_map_from_imkvdb():
-    save_map = {}
-    bcat_save_map = {}
-    imkvdb_path = os.path.join(
-        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", "imkvdb.arc"
-    )
-    with io.open(imkvdb_path, "rb") as f:
-        f.seek(0x8)
-        total_entries = int.from_bytes(f.read(0x1), "big")
-        print(f"total_entries: {total_entries}")
-        f.seek(0xC)
-        for _ in range(total_entries):
-            f.seek(0xC, 1)
-            k = f.read(64).hex()[1:17]
-            title_id = (
-                k[15:11:-1] + k[9:11] + k[7:9] + k[5:7] + k[3:5] + k[1:3] + k[0] + k[11]
+    if should_sync_saves:
+        if ryujinx_dir is None:
+            raise ArgumentError(
+                ryujinxdir_arg,
+                f"required when having {_get_action_name(syncsaves_arg)}",
             )
-            value = f.read(64).hex()[:2]
-
-            # If a title id has 2 values, the later is the BCAT save entry
-            if save_map.get(title_id) is None:
-                save_map[title_id] = value
-            else:
-                bcat_save_map[title_id] = value
-    return save_map, bcat_save_map
+        if yuzu_dir is None:
+            raise ArgumentError(
+                yuzudir_arg, f"required when having {_get_action_name(syncsaves_arg)}"
+            )
 
 
 def __progress_bar(current, total, bar_length=20, suffix=""):
@@ -346,7 +572,6 @@ def __progress_bar(current, total, bar_length=20, suffix=""):
     print(f"Progress: [{arrow}{padding}] {int(fraction*100)}%", end=ending)
 
 
-
 _validate_args()
 
 if should_auto_add:
@@ -355,5 +580,5 @@ if should_auto_add:
 if should_export_csv:
     export_updates_csv()
 
-if should_sync_save:
-    
+if should_sync_saves:
+    sync_saves()
