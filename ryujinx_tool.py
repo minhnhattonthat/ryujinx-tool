@@ -114,7 +114,7 @@ def generate_ryujinx_json():
     total_files = len(nsp_files)
     for index, nsp_file in enumerate(nsp_files):
         suffix = f"\nProcessing {nsp_file}"
-        __progress_bar(index + 1, total_files, suffix=suffix)
+        _progress_bar(index + 1, total_files, suffix=suffix)
 
         args = [
             hactoolnet_path,
@@ -189,7 +189,7 @@ def generate_ryujinx_json():
     ):
         output_dir = os.path.join(ryujinx_dir, "games", application_id)
 
-        __progress_bar(
+        _progress_bar(
             index + 1,
             total_updates,
             suffix=f"\nExporting {os.path.join(output_dir, 'updates.json')}",
@@ -211,7 +211,7 @@ def generate_ryujinx_json():
     ):
         output_dir = os.path.join(ryujinx_dir, "games", application_id)
 
-        __progress_bar(
+        _progress_bar(
             index + 1,
             total_dlcs,
             suffix=f"\nExporting {os.path.join(output_dir, 'dlc.json')}",
@@ -252,7 +252,7 @@ def export_updates_csv():
     nsp_files = glob.glob(os.path.join(nsp_dir, "**", "*.nsp"), recursive=True)
     total_files = len(nsp_files)
     for index, nsp_file in enumerate(nsp_files):
-        __progress_bar(index + 1, total_files)
+        _progress_bar(index + 1, total_files)
 
         args = [
             hactoolnet_path,
@@ -308,12 +308,17 @@ def export_updates_csv():
 def sync_saves():
     print("Syncing saves")
 
-    save_map, _ = _get_save_map_from_imkvdb()
     yuzu_save_dirname = _reverse_hex_str(_get_yuzu_profile_uuid()).upper()
     yuzu_save_dir = os.path.join(
         yuzu_dir, "nand", "user", "save", "0000000000000000", yuzu_save_dirname
     )
     ryujinx_save_dir = os.path.join(ryujinx_dir, "bis", "user", "save")
+
+    title_id_list = os.listdir(yuzu_save_dir)
+    _add_imkvdb_entries(title_id_list)
+
+    save_map = _get_save_map_from_imkvdb()[0]
+
     total_saves = len(save_map.items())
 
     for index, (title_id, ryujinx_save_dirname) in enumerate(save_map.items()):
@@ -323,7 +328,7 @@ def sync_saves():
         )
 
         _sync_dir(yuzu_game_save_dir, ryujinx_game_save_dir, title_id)
-        __progress_bar(index + 1, total_saves)
+        _progress_bar(index + 1, total_saves)
 
     print("Saves synced")
 
@@ -331,19 +336,29 @@ def sync_saves():
 def _get_save_map_from_imkvdb():
     save_map = {}
     bcat_save_map = {}
+    key_value_list = []
     imkvdb_path = os.path.join(
         ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", "imkvdb.arc"
     )
+    last_index = 1
     with io.open(imkvdb_path, "rb") as f:
         f.seek(0x8)
-        total_entries = int.from_bytes(f.read(0x1), "big")
+        total_entries = int(_reverse_hex_str(f.read(0x4).hex()), 16)
         f.seek(0xC)
         for _ in range(total_entries):
             f.seek(0xC, 1)
-            k = f.read(0x40).hex()[:16]
+            key = f.read(0x40).hex()
+            k = key[:16]
             title_id = _reverse_hex_str(k)
-            v = f.read(0x40).hex()[:16]
+            value = f.read(0x40).hex()
+            v = value[:16]
             save_dirname = _reverse_hex_str(v)
+            index = int(value[:2], 16)
+
+            if index > last_index:
+                last_index = index
+
+            key_value_list.append({key: value})
 
             if title_id == "0000000000000000":
                 # system title
@@ -353,7 +368,50 @@ def _get_save_map_from_imkvdb():
                 save_map[title_id] = save_dirname
             else:
                 bcat_save_map[title_id] = save_dirname
-    return save_map, bcat_save_map
+
+    return save_map, key_value_list, last_index
+
+
+def _add_imkvdb_entries(title_id_list):
+
+    save_map, key_value_list, last_index = _get_save_map_from_imkvdb()
+    existed_title_id_list = save_map.keys()
+    new_title_id_list = list(filter(lambda id: id.lower() not in existed_title_id_list, title_id_list))
+    new_total_entries = len(key_value_list) + len(new_title_id_list)
+
+    imkvdb_path = os.path.join(
+        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", "imkvdb.arc"
+    )
+
+    imkvdb_bk_path = os.path.join(
+        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", "imkvdb.arc.bk"
+    )
+
+    if os.path.isfile(imkvdb_path) is False:
+        raise FileNotFoundError("imkvdb.arc not existed")
+
+    shutil.copy2(imkvdb_path, imkvdb_bk_path)
+
+    with io.open(imkvdb_path, "r+b") as f:
+        f.seek(0x8)
+        total_entries_b = bytes.fromhex(_reverse_hex_str(new_total_entries.to_bytes(4, 'big').hex()))
+        f.write(total_entries_b)
+        # seek to end of file
+        f.seek(0, 2)
+        for i, title_id in enumerate(new_title_id_list, start=1):
+            print(title_id)
+            f.write(bytes.fromhex("494D454E4000000040000000"))
+            f.write(bytes.fromhex(_reverse_hex_str(title_id)))
+            f.write(bytes.fromhex("0100000000000000"))
+            f.write(bytes.fromhex("00000000000000000000000000000000"))
+            f.write(bytes.fromhex("01000000000000000000000000000000"))
+            f.write(bytes.fromhex("00000000000000000000000000000000"))
+            index_b = _reverse_hex_str((last_index + i).to_bytes(4, "big").hex())
+            f.write(bytes.fromhex(index_b))
+            f.write(bytes.fromhex("000000000000000000000000"))
+            f.write(bytes.fromhex("00000000000000000100000000000000"))
+            f.write(bytes.fromhex("00000000000000000000000000000000"))
+            f.write(bytes.fromhex("00000000000000000000000000000000"))
 
 
 def _get_yuzu_profile_uuid():
@@ -404,6 +462,11 @@ def _sync_dir(_yuzu_dir, _ryujinx_dir, title_id):
         src = _ryujinx_dir
         dst = _yuzu_dir
         reason = "yuzu save not existed."
+
+    elif os.path.isdir(_ryujinx_dir) is False:
+        src = _yuzu_dir
+        dst = _ryujinx_dir
+        reason = "Ryujinx save not existed."
 
     else:
         yuzu_listdir = os.listdir(_yuzu_dir)
@@ -557,7 +620,7 @@ def _validate_args():
             )
 
 
-def __progress_bar(current, total, bar_length=20, suffix=""):
+def _progress_bar(current, total, bar_length=20, suffix=""):
     fraction = current / total
 
     arrow = int(fraction * bar_length - 1) * "-" + ">"
