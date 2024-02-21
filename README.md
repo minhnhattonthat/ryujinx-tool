@@ -51,6 +51,17 @@ Export csv file with update available status for update files
 
 `python ryujinx_tool.py -e -n <path to folder contains NSP files>`
 
+Sync save between Ryujinx & yuzu, with priority for newer saves to override
+
+`python ryujinx_tool.py -s newer -r <Ryujinx filesystem path> -y <yuzu user folder path>`
+
 ## External Keys
 
 For more detailed information on keyset files, see [KEYS.md](https://github.com/Thealexbarney/LibHac/blob/master/KEYS.md).
+
+## Credits
+
+- [Ryujinx](https://github.com/Ryujinx/Ryujinx/)
+- [LibHac](https://github.com/Thealexbarney/LibHac/) provides hactoolnet program.
+- [SwitchBrew](https://switchbrew.org) provides details on IMKV data structure.
+- [yuzu](https://github.com/yuzu-emu/yuzu)
