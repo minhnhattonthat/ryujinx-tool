@@ -12,7 +12,11 @@ import re
 import shutil
 import subprocess
 from subprocess import CalledProcessError
+import sys
 import urllib.request
+
+# Fix powershell cannot print unicode characters
+sys.stdout.reconfigure(encoding='utf-8')
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -538,7 +542,6 @@ def _back_up_save(save_dir):
         dst = os.path.join(dir_path, "yuzu-save-backup", bk_folder)
     if os.path.isdir(dst) is False:
         os.makedirs(dst)
-    print(src, dst)
     shutil.copytree(src, dst, dirs_exist_ok=True)
 
 
