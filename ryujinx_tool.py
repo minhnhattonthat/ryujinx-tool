@@ -388,19 +388,26 @@ def _add_imkvdb_entries(title_id_list):
     new_title_id_list = list(filter(lambda id: id.lower() not in existed_title_id_list, title_id_list))
     new_total_entries = len(key_value_list) + len(new_title_id_list)
 
-    imkvdb_path = os.path.join(
-        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", "imkvdb.arc"
+    imkvdb_root = os.path.join(
+        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0"
     )
+    imkvdb_path = os.path.join(imkvdb_root, "imkvdb.arc")
 
     current_timestamp = int(datetime.now().timestamp() * 1000)
-    imkvdb_bk_path = os.path.join(
-        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", f"imkvdb-{current_timestamp}.arc.bk"
-    )
+    imkvdb_bk_path = os.path.join(imkvdb_root, f"imkvdb-{current_timestamp}.arc.bk")
 
     if os.path.isfile(imkvdb_path) is False:
         raise FileNotFoundError("imkvdb.arc not existed")
 
     shutil.copy2(imkvdb_path, imkvdb_bk_path)
+
+    # Keep total backups in limit
+    backup_list = glob.glob(os.path.join(imkvdb_root, "imkvdb-*.arc.bk"))
+    length = len(backup_list)
+    limit = 5
+    if length > limit:
+        for bk in backup_list[:length - limit]:
+            os.remove(bk)
 
     with io.open(imkvdb_path, "r+b") as f:
         f.seek(0x8)
