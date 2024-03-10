@@ -17,6 +17,8 @@ from subprocess import CalledProcessError
 import sys
 import urllib.request
 
+VERSION = "v0.4"
+
 # Fix powershell cannot print unicode characters
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -56,7 +58,7 @@ syncsaves_arg = actions_arg_group.add_argument(
     choices=full_priority_choices,
     help="""Export csv file with update available status for update files.\nPriority includes yuzu, ryujinx or newer. Add '~' before priority (e.g. ~yuzu) to use simulation mode.\nRequires --ryujinxdir, --yuzudir""",
 )
-parser.add_argument("-v", "--version", action="version", version="%(prog)s v0.3")
+parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {VERSION}")
 ryujinxdir_arg = parser.add_argument(
     "-r",
     "--ryujinxdir",
