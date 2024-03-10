@@ -4,6 +4,7 @@
 
 import argparse
 from argparse import ArgumentError, _get_action_name
+from datetime import datetime
 import glob
 import io
 import json
@@ -389,8 +390,9 @@ def _add_imkvdb_entries(title_id_list):
         ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", "imkvdb.arc"
     )
 
+    current_timestamp = int(datetime.now().timestamp() * 1000)
     imkvdb_bk_path = os.path.join(
-        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", "imkvdb.arc.bk"
+        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", f"imkvdb-{current_timestamp}.arc.bk"
     )
 
     if os.path.isfile(imkvdb_path) is False:
