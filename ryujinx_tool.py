@@ -5,6 +5,7 @@
 import argparse
 from argparse import ArgumentError, _get_action_name
 from datetime import datetime
+from functools import cmp_to_key
 import glob
 import io
 import json
@@ -321,6 +322,7 @@ def sync_saves():
 
     title_id_list = os.listdir(yuzu_save_dir)
     _add_imkvdb_entries(title_id_list)
+    _sort_imkvdb_entries()
 
     save_map = _get_save_map_from_imkvdb()[0]
 
@@ -365,7 +367,7 @@ def _get_save_map_from_imkvdb():
                 if index > last_index:
                     last_index = index
 
-            key_value_list.append({key: value})
+            key_value_list.append({"key": key, "value": value})
 
             if title_id == "0000000000000000":
                 # system title
@@ -420,6 +422,39 @@ def _add_imkvdb_entries(title_id_list):
             f.write(bytes.fromhex("00000000000000000100000000000000"))
             f.write(bytes.fromhex("00000000000000000000000000000000"))
             f.write(bytes.fromhex("00000000000000000000000000000000"))
+
+
+def _sort_imkvdb_entries():
+    _, key_value_list, _ = _get_save_map_from_imkvdb()
+
+    imkvdb_path = os.path.join(
+        ryujinx_dir, "bis", "system", "save", "8000000000000000", "0", "imkvdb.arc"
+    )
+
+    if os.path.isfile(imkvdb_path) is False:
+        raise FileNotFoundError("imkvdb.arc not existed")
+
+    def compare_key(item1, item2):
+        k1 = item1["key"][:16]
+        k2 = item2["key"][:16]
+        for i in range(8):
+            start = 16 - i * 2 - 2
+            stop = start + 2
+            h1 = int(k1[start:stop], 16)
+            h2 = int(k2[start:stop], 16)
+            if h1 == h2:
+                continue
+            return h1 - h2
+        return int(item1["key"][64:66]) - int(item2["key"][64:66])
+
+    sorted_key_value_list = sorted(key_value_list, key=cmp_to_key(compare_key))
+
+    with io.open(imkvdb_path, "r+b") as f:
+        f.seek(0xC)
+        for pair in sorted_key_value_list:
+            f.write(bytes.fromhex("494D454E4000000040000000"))
+            f.write(bytes.fromhex(pair["key"]))
+            f.write(bytes.fromhex(pair["value"]))
 
 
 def _get_yuzu_profile_uuid():
