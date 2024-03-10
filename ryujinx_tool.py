@@ -357,10 +357,12 @@ def _get_save_map_from_imkvdb():
             value = f.read(0x40).hex()
             v = value[:16]
             save_dirname = _reverse_hex_str(v)
-            index = int(value[:2], 16)
 
-            if index > last_index:
-                last_index = index
+            # The system save has save_dirname as 8000000000000030 and should be skipped
+            if save_dirname[0] == "0":
+                index = int(save_dirname, 16)
+                if index > last_index:
+                    last_index = index
 
             key_value_list.append({key: value})
 
