@@ -20,7 +20,7 @@ import urllib.request
 VERSION = "v0.4"
 
 # Fix powershell cannot print unicode characters
-sys.stdout.reconfigure(encoding='utf-8')
+sys.stdout.reconfigure(encoding="utf-8")
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -387,8 +387,11 @@ def _get_save_map_from_imkvdb():
 def _add_imkvdb_entries(title_id_list):
 
     save_map, key_value_list, last_index = _get_save_map_from_imkvdb()
+    new_last_index = last_index
     existed_title_id_list = save_map.keys()
-    new_title_id_list = list(filter(lambda id: id.lower() not in existed_title_id_list, title_id_list))
+    new_title_id_list = list(
+        filter(lambda id: id.lower() not in existed_title_id_list, title_id_list)
+    )
     new_total_entries = len(key_value_list) + len(new_title_id_list)
 
     imkvdb_root = os.path.join(
@@ -409,29 +412,35 @@ def _add_imkvdb_entries(title_id_list):
     length = len(backup_list)
     limit = 5
     if length > limit:
-        for bk in backup_list[:length - limit]:
+        for bk in backup_list[: length - limit]:
             os.remove(bk)
 
     with io.open(imkvdb_path, "r+b") as f:
         f.seek(0x8)
-        total_entries_b = bytes.fromhex(_reverse_hex_str(new_total_entries.to_bytes(4, 'big').hex()))
+        total_entries_b = bytes.fromhex(
+            _reverse_hex_str(new_total_entries.to_bytes(4, "big").hex())
+        )
         f.write(total_entries_b)
         # seek to end of file
         f.seek(0, 2)
         for i, title_id in enumerate(new_title_id_list, start=1):
-            print(title_id)
             f.write(bytes.fromhex("494D454E4000000040000000"))
             f.write(bytes.fromhex(_reverse_hex_str(title_id)))
             f.write(bytes.fromhex("0100000000000000"))
-            f.write(bytes.fromhex("00000000000000000000000000000000"))
+            f.write(bytes.fromhex("0" * 32))
             f.write(bytes.fromhex("01000000000000000000000000000000"))
-            f.write(bytes.fromhex("00000000000000000000000000000000"))
-            index_b = _reverse_hex_str((last_index + i).to_bytes(4, "big").hex())
+            f.write(bytes.fromhex("0" * 32))
+            new_last_index = last_index + i
+            index_b = _reverse_hex_str((new_last_index).to_bytes(4, "big").hex())
             f.write(bytes.fromhex(index_b))
-            f.write(bytes.fromhex("000000000000000000000000"))
+            f.write(bytes.fromhex("0" * 24))
             f.write(bytes.fromhex("00000000000000000100000000000000"))
-            f.write(bytes.fromhex("00000000000000000000000000000000"))
-            f.write(bytes.fromhex("00000000000000000000000000000000"))
+            f.write(bytes.fromhex("0" * 64))
+
+    last_publish_id = os.path.join(imkvdb_root, "lastPublishedId")
+    with io.open(last_publish_id, "r+b") as f:
+        last_index_b = _reverse_hex_str((new_last_index).to_bytes(4, "big").hex())
+        f.write(bytes.fromhex(last_index_b))
 
 
 def _sort_imkvdb_entries():
