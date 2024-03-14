@@ -17,7 +17,7 @@ from subprocess import CalledProcessError
 import sys
 import urllib.request
 
-VERSION = "v0.4"
+VERSION = "v0.4.1"
 
 # Fix powershell cannot print unicode characters
 sys.stdout.reconfigure(encoding="utf-8")
