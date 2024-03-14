@@ -323,8 +323,9 @@ def sync_saves():
     ryujinx_save_dir = os.path.join(ryujinx_dir, "bis", "user", "save")
 
     title_id_list = os.listdir(yuzu_save_dir)
-    _add_imkvdb_entries(title_id_list)
-    _sort_imkvdb_entries()
+    if should_simulate_sync is True:
+        _add_imkvdb_entries(title_id_list)
+        _sort_imkvdb_entries()
 
     save_map = _get_save_map_from_imkvdb()[0]
 
