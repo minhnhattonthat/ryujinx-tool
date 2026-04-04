@@ -15,6 +15,7 @@ import shutil
 import subprocess
 from subprocess import CalledProcessError
 import sys
+import hashlib
 import urllib.request
 
 VERSION = "v0.4.1"
@@ -58,6 +59,17 @@ syncsaves_arg = actions_arg_group.add_argument(
     choices=full_priority_choices,
     help="""Export csv file with update available status for update files.\nPriority includes yuzu, ryujinx or newer. Add '~' before priority (e.g. ~yuzu) to use simulation mode.\nRequires --ryujinxdir, --yuzudir""",
 )
+listyuzuncas_arg = actions_arg_group.add_argument(
+    "-l",
+    "--listyuzuncas",
+    action="store_true",
+    help="Get nca file paths for yuzu from ryujinx updates.json & dlc.json. Requires --nspfile, --ryujinxdir, --yuzudir",
+)
+listryujnxnsps_arg = actions_arg_group.add_argument(
+    "--listryujnxnsps",
+    action="store_true",
+    help="Get nsp file paths from ryujinx updates.json & dlc.json. Requires --nspfile, --ryujinxdir",
+)
 parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {VERSION}")
 ryujinxdir_arg = parser.add_argument(
     "-r",
@@ -76,6 +88,11 @@ nspdir_arg = parser.add_argument(
     "--nspdir",
     metavar="<dir>",
     help="Directory path of where nsp update & dlc files are stored.",
+)
+nspfile_arg = parser.add_argument(
+    "--nspfile",
+    metavar="<file>",
+    help="File path of the game nsp.",
 )
 versionspath_arg = parser.add_argument(
     "-p",
@@ -102,19 +119,22 @@ arguments = parser.parse_args()
 ryujinx_dir = arguments.ryujinxdir
 yuzu_dir = arguments.yuzudir
 nsp_dir = arguments.nspdir
+target_nsp_file = arguments.nspfile
 hactoolnet_path = arguments.hactoolnet
 title_keys_path = arguments.titlekeys
 versions_path = arguments.versionspath
 should_auto_add = arguments.autoadd
 should_export_csv = arguments.exportupdates
 should_sync_saves = arguments.syncsaves is not None
+should_list_yuzu_ncas = arguments.listyuzuncas
+should_list_ryujinx_nsps = arguments.listryujnxnsps
 sync_priority = arguments.syncsaves
 should_simulate_sync = should_sync_saves and arguments.syncsaves[0] == "~"
 
 local_versions_path = os.path.join(dir_path, "versions.json")
 
 
-def generate_ryujinx_json():
+def generate_ryujinx_json() -> None:
     ryujinx_update_json_map = {}
     ryujinx_dlc_json_map = {}
 
@@ -234,7 +254,7 @@ def generate_ryujinx_json():
     print("\nFinished exporting dlc.json")
 
 
-def export_updates_csv():
+def export_updates_csv() -> None:
     versions_map = {}
 
     path = local_versions_path
@@ -313,7 +333,7 @@ def export_updates_csv():
         print(f"Exported to {f.name}")
 
 
-def sync_saves():
+def sync_saves() -> None:
     print("Syncing saves")
 
     yuzu_save_dirname = _reverse_hex_str(_get_yuzu_profile_uuid()).upper()
@@ -343,7 +363,7 @@ def sync_saves():
     print("Saves synced")
 
 
-def _get_save_map_from_imkvdb():
+def _get_save_map_from_imkvdb() -> tuple[dict, list, int]:
     save_map = {}
     bcat_save_map = {}
     key_value_list = []
@@ -384,7 +404,7 @@ def _get_save_map_from_imkvdb():
     return save_map, key_value_list, last_index
 
 
-def _add_imkvdb_entries(title_id_list):
+def _add_imkvdb_entries(title_id_list) -> None:
 
     save_map, key_value_list, last_index = _get_save_map_from_imkvdb()
     new_last_index = last_index
@@ -443,7 +463,7 @@ def _add_imkvdb_entries(title_id_list):
         f.write(bytes.fromhex(last_index_b))
 
 
-def _sort_imkvdb_entries():
+def _sort_imkvdb_entries() -> None:
     _, key_value_list, _ = _get_save_map_from_imkvdb()
 
     imkvdb_path = os.path.join(
@@ -476,7 +496,7 @@ def _sort_imkvdb_entries():
             f.write(bytes.fromhex(pair["value"]))
 
 
-def _get_yuzu_profile_uuid():
+def _get_yuzu_profile_uuid() -> str:
     profiles_path = os.path.join(
         yuzu_dir,
         "nand",
@@ -494,7 +514,7 @@ def _get_yuzu_profile_uuid():
     return profile_uuid
 
 
-def _reverse_hex_str(hex_str: str):
+def _reverse_hex_str(hex_str: str) -> str:
     output = None
     l = [hex_str[i : i + 2] for i in range(0, len(hex_str), 2)]
     l.reverse()
@@ -502,7 +522,7 @@ def _reverse_hex_str(hex_str: str):
     return output
 
 
-def _sync_dir(_yuzu_dir, _ryujinx_dir, title_id):
+def _sync_dir(_yuzu_dir: str, _ryujinx_dir: str, title_id: str) -> None:
     log_suffix = "- [Simulate]" if should_simulate_sync else "-"
     reason = "Unknown error."
     src = None
@@ -587,7 +607,7 @@ def _sync_dir(_yuzu_dir, _ryujinx_dir, title_id):
         print(log_suffix, title if title is not None else title_id, reason)
 
 
-def _back_up_save(save_dir):
+def _back_up_save(save_dir: str) -> None:
     src = save_dir
     is_ryujinx = False
     if os.path.basename(save_dir) == "0":
@@ -603,7 +623,7 @@ def _back_up_save(save_dir):
     shutil.copytree(src, dst, dirs_exist_ok=True)
 
 
-def _newest_file_in_folder(root_dir):
+def _newest_file_in_folder(root_dir: str) -> str:
     newest_file = None
     newest_file_date = None
 
@@ -630,7 +650,7 @@ def _newest_file_in_folder(root_dir):
 
 
 # pylint: disable=W0212
-def _validate_args():
+def _validate_args() -> None:
     if all(
         getattr(arguments, action.dest) is None
         for action in actions_arg_group._group_actions
@@ -680,8 +700,41 @@ def _validate_args():
                 yuzudir_arg, f"required when having {_get_action_name(syncsaves_arg)}"
             )
 
+    if should_list_yuzu_ncas:
+        if ryujinx_dir is None:
+            raise ArgumentError(
+                ryujinxdir_arg,
+                f"required when having {_get_action_name(listyuzuncas_arg)}",
+            )
+        if yuzu_dir is None:
+            raise ArgumentError(
+                yuzudir_arg,
+                f"required when having {_get_action_name(listyuzuncas_arg)}",
+            )
+        if target_nsp_file is None:
+            raise ArgumentError(
+                nspfile_arg,
+                f"required when having {_get_action_name(listyuzuncas_arg)}",
+            )
+        if os.path.isfile(target_nsp_file) is False:
+            raise ArgumentError(nspfile_arg, "file not existed")
 
-def _progress_bar(current, total, bar_length=20, suffix=""):
+    if should_list_ryujinx_nsps:
+        if ryujinx_dir is None:
+            raise ArgumentError(
+                ryujinxdir_arg,
+                f"required when having {_get_action_name(listryujnxnsps_arg)}",
+            )
+        if target_nsp_file is None:
+            raise ArgumentError(
+                nspfile_arg,
+                f"required when having {_get_action_name(listryujnxnsps_arg)}",
+            )
+        if os.path.isfile(target_nsp_file) is False:
+            raise ArgumentError(nspfile_arg, "file not existed")
+
+
+def _progress_bar(current: float, total: float, bar_length=20, suffix="") -> None:
     fraction = current / total
 
     arrow = int(fraction * bar_length - 1) * "-" + ">"
@@ -696,6 +749,132 @@ def _progress_bar(current, total, bar_length=20, suffix=""):
     print(f"Progress: [{arrow}{padding}] {int(fraction*100)}%", end=ending)
 
 
+def get_ryujinx_nsp_path(nsp_file):
+    title_id_match = re.search(r"0100[a-zA-Z0-9]{12}", nsp_file)
+    if title_id_match is None:
+        print(f"No title id is found for {nsp_file}")
+        return
+
+    title_id = nsp_file[title_id_match.start() : title_id_match.end()]
+
+    app_dir = os.path.join(ryujinx_dir, "games", title_id.lower())
+
+    if os.path.isdir(app_dir) is False:
+        return
+
+    update_json_path = os.path.join(app_dir, "updates.json")
+    dlc_json_path = os.path.join(app_dir, "dlc.json")
+    nsp_list = []
+
+    if os.path.isfile(update_json_path) is True:
+        with io.open(update_json_path, "r", encoding="utf-8") as f:
+            update_json = json.load(f)
+            f.close()
+            nsp_list.extend(update_json["paths"])
+
+    if os.path.isfile(dlc_json_path) is True:
+        with io.open(dlc_json_path, "r", encoding="utf-8") as f:
+            dlc_json = json.load(f)
+            f.close()
+            for dlc in dlc_json:
+                nsp_list.append(dlc["path"])
+
+    for nsp_path in nsp_list:
+        print(nsp_path)
+
+
+def get_yuzu_nca_path(nsp_file):
+    title_id_match = re.search(r"0100[a-zA-Z0-9]{12}", nsp_file)
+    if title_id_match is None:
+        print(f"No title id is found for {nsp_file}")
+        return
+
+    title_id = nsp_file[title_id_match.start() : title_id_match.end()]
+
+    app_dir = os.path.join(ryujinx_dir, "games", title_id.lower())
+
+    if os.path.isdir(app_dir) is False:
+        return
+
+    update_json_path = os.path.join(app_dir, "updates.json")
+    dlc_json_path = os.path.join(app_dir, "dlc.json")
+    nca_list = []
+
+    if os.path.isfile(update_json_path) is True:
+        with io.open(update_json_path, "r", encoding="utf-8") as f:
+            update_json = json.load(f)
+            f.close()
+            update_nsp_file = update_json["selected"]
+            if update_nsp_file:
+                args = [
+                    hactoolnet_path,
+                    "-k",
+                    title_keys_path,
+                    "-t",
+                    "pfs0",
+                    update_nsp_file,
+                    "--listtitles",
+                ]
+                try:
+                    output = subprocess.check_output(args).decode("utf-8")
+                except CalledProcessError:
+                    print(f"Error when process {update_nsp_file}")
+                    return []
+                nca_id_list = re.findall(r"pfs0:/[a-z0-9]{32}.nca", output)
+                meta_nca = re.findall(r"pfs0:/[a-z0-9]{32}.cnmt.nca", output)[0].replace(".cnmt", "")
+                nca_id_list.append(meta_nca)
+                nca_id_list = list(
+                    map(lambda x: x.replace("pfs0:/", "").replace(".nca", ""), nca_id_list)
+                )
+                nca_list.extend(nca_id_list)
+
+    if os.path.isfile(dlc_json_path) is True:
+        with io.open(dlc_json_path, "r", encoding="utf-8") as f:
+            dlc_json = json.load(f)
+            f.close()
+            for dlc in dlc_json:
+                dlc_nsp_file = dlc["path"]
+                args = [
+                    hactoolnet_path,
+                    "-k",
+                    title_keys_path,
+                    "-t",
+                    "pfs0",
+                    dlc_nsp_file,
+                    "--listtitles",
+                ]
+                try:
+                    output = subprocess.check_output(args).decode("utf-8")
+                except CalledProcessError:
+                    print(f"Error when process {dlc_nsp_file}")
+                    continue
+                nca_id_list = re.findall(r"pfs0:/[a-z0-9]{32}.nca", output)
+                meta_nca = re.findall(r"pfs0:/[a-z0-9]{32}.cnmt.nca", output)[0].replace(".cnmt", "")
+                nca_id_list.append(meta_nca)
+                nca_id_list = list(
+                    map(lambda x: x.replace("pfs0:/", "").replace(".nca", ""), nca_id_list)
+                )
+                nca_list.extend(nca_id_list)
+
+    nca_list = list(map(_get_nca_full_path, nca_list))
+    for nca_path in nca_list:
+        print(nca_path)
+
+
+def _get_nca_full_path(nca_id):
+    hash_object = hashlib.sha256(bytes.fromhex(nca_id))
+    hash_first_char = hash_object.hexdigest().upper()[0:2]
+    return os.path.join(
+        yuzu_dir,
+        "nand",
+        "user",
+        "Contents",
+        "registered",
+        "000000" + hash_first_char,
+        nca_id + ".nca",
+    )
+
+
 _validate_args()
 
 if should_auto_add:
@@ -706,3 +885,9 @@ if should_export_csv:
 
 if should_sync_saves:
     sync_saves()
+
+if should_list_yuzu_ncas:
+    get_yuzu_nca_path(target_nsp_file)
+
+if should_list_ryujinx_nsps:
+    get_ryujinx_nsp_path(target_nsp_file)
