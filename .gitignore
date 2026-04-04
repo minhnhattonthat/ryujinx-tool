@@ -1,6 +1,10 @@
 .vscode
 hactoolnet*
 prod.keys
+title.keys
 versions.json
-updates.csv
+*.csv
 *save-backup
+.claude/*
+docs/*
+*.bat
