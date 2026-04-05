@@ -9,51 +9,81 @@ A tool for better manage Ryujinx
 3. Download [hactoolnet](https://github.com/Thealexbarney/LibHac/releases/latest) (Windows & Linux are supported) and put it in the same folder of the repo
 4. Put prod.keys file extracted from Nintendo Switch Console in the same folder of the repo
 
+## Configuration
+
+`ryujinx_tool` reads paths from `config.ini` next to the script. Copy `config.ini.example` to `config.ini` and fill in the paths (the file uses TOML syntax):
+
+```toml
+[paths]
+ryujinx_dir   = 'C:\path\to\Ryujinx\filesystem'
+yuzu_dir      = 'C:\path\to\yuzu\user'
+update_nsp_dir = 'C:\path\to\nsp\updates'
+dlc_nsp_dir    = 'C:\path\to\nsp\dlcs'
+# either accepts an array of paths too:
+# update_nsp_dir = ['C:\updates\one', 'D:\updates\two']
+# hactoolnet  = './hactoolnet.exe'   # optional, default: next to script
+# title_keys  = './prod.keys'        # optional, default: next to script
+# versions_json = './versions.json'  # optional, auto-downloaded if unset
+```
+
+Windows paths use **single quotes** (TOML literal strings) so backslashes work as-is. Double-quoted strings would require forward slashes or doubled backslashes.
+
+Use `--config <file>` to point at a different config file.
+
 ## Usage
 
 ```text
-usage: ryujinx_tool [-h] [-a] [-e] [-s <priority>] [-v] [-r <dir>] [-y <dir>] [-n <dir>] [-p <file>] [--hactoolnet <file>] [--titlekeys <file>]
+usage: ryujinx_tool [-h] [-a] [-e] [-s <priority>] [-l] [--listryujnxnsps]
+                    [-v] [--config <file>] [--nspfile <file>]
 
-A tool for better manage Ryujinx
+actions (requires at least one):
+  -a, --autoadd         Automatically add updates & DLCs to Ryujinx
+  -e, --exportupdates   Export csv of update-available status
+  -s, --syncsaves <priority>
+                        Sync saves between yuzu and Ryujinx.
+                        <priority> is one of: yuzu, ryujinx, newer.
+                        Prefix with '~' (e.g. ~newer) for simulate mode.
+  -l, --listyuzuncas    Print yuzu NCA paths for a game (requires --nspfile)
+  --listryujnxnsps      Print Ryujinx NSP paths for a game (requires --nspfile)
 
 options:
   -h, --help            show this help message and exit
   -v, --version         show program's version number and exit
-  -r <dir>, --ryujinxdir <dir>
-                        Directory path of Ryujinx filesystem folder.
-  -y <dir>, --yuzudir <dir>
-                        Directory path of yuzu user folder.
-  -n <dir>, --nspdir <dir>
-                        Directory path of where nsp update & dlc files are stored.
-  -p <file>, --versionspath <file>
-                        File path of versions.json from titledb. If not provide will search in current folder or download from its source.
-  --hactoolnet <file>   File path of hactoolnet.exe. Default to current folder.
-  --titlekeys <file>    File path of prod.keys. Default to curreent folder.
-
-actions:
-  Requires at least one
-
-  -a, --autoadd         Automatically add updates & DLCs to Ryujinx. Requires --nspdir, --ryujinx
-  -e, --exportupdates   Export csv file with update available status for update files. Requires --nspdir
-  -s <priority>, --syncsaves <priority>
-                        Export csv file with update available status for update files.
-                        Priority includes yuzu, ryujinx or newer. Add '~' before priority (e.g. ~yuzu) to use simulation mode.
-                        Requires --ryujinxdir, --yuzudir
+  --config <file>       Path to config file (default: config.ini next to script)
+  --nspfile <file>      Game NSP path (required by list actions)
 ```
 
 ## Examples
 
-Automatically add all updates & dlc files in a folder recursively
+Automatically add all updates & DLC files in a folder (paths come from config.ini):
 
-`python ryujinx_tool.py -a -r <Ryujinx filesystem path> -n <path to folder contains NSP files>`
+```
+python ryujinx_tool.py -a
+```
 
-Export csv file with update available status for update files
+Export updates.csv:
 
-`python ryujinx_tool.py -e -n <path to folder contains NSP files>`
+```
+python ryujinx_tool.py -e
+```
 
-Sync save between Ryujinx & yuzu, with priority for newer saves to override
+Sync saves, preferring the newer side:
 
-`python ryujinx_tool.py -s newer -r <Ryujinx filesystem path> -y <yuzu user folder path>`
+```
+python ryujinx_tool.py -s newer
+```
+
+Simulate the sync without writing any files:
+
+```
+python ryujinx_tool.py -s ~newer
+```
+
+Print the NCA paths yuzu should have for a game:
+
+```
+python ryujinx_tool.py -l --nspfile "path/to/game.nsp"
+```
 
 ## External Keys
 

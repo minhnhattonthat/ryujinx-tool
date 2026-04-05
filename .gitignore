@@ -8,3 +8,5 @@ versions.json
 .claude/*
 docs/*
 *.bat
+config.ini
+__pycache__/*
