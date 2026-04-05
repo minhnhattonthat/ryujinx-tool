@@ -17,9 +17,10 @@ A tool for better manage Ryujinx
 [paths]
 ryujinx_dir   = 'C:\path\to\Ryujinx\filesystem'
 yuzu_dir      = 'C:\path\to\yuzu\user'
-nsp_dir       = 'C:\path\to\nsp\updates-and-dlcs'
-# or an array of paths:
-# nsp_dir     = ['C:\path\to\updates', 'D:\more\nsps']
+update_nsp_dir = 'C:\path\to\nsp\updates'
+dlc_nsp_dir    = 'C:\path\to\nsp\dlcs'
+# either accepts an array of paths too:
+# update_nsp_dir = ['C:\updates\one', 'D:\updates\two']
 # hactoolnet  = './hactoolnet.exe'   # optional, default: next to script
 # title_keys  = './prod.keys'        # optional, default: next to script
 # versions_json = './versions.json'  # optional, auto-downloaded if unset

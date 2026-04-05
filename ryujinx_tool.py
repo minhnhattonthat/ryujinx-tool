@@ -35,11 +35,11 @@ def _build_parser() -> argparse.ArgumentParser:
     actions = parser.add_argument_group("actions", "Requires at least one")
     actions.add_argument(
         "-a", "--autoadd", action="store_true",
-        help="Automatically add updates & DLCs to Ryujinx. Requires ryujinx_dir, nsp_dir in config.",
+        help="Automatically add updates & DLCs to Ryujinx. Requires ryujinx_dir and update_nsp_dir and/or dlc_nsp_dir in config.",
     )
     actions.add_argument(
         "-e", "--exportupdates", action="store_true",
-        help="Export csv file with update available status. Requires nsp_dir in config.",
+        help="Export csv file with update available status. Requires update_nsp_dir in config.",
     )
     actions.add_argument(
         "-s", "--syncsaves", metavar="<priority>", choices=_FULL_PRIORITIES,

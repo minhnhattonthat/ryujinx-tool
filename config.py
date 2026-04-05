@@ -24,7 +24,8 @@ DEFAULT_TITLE_KEYS = os.path.join(SCRIPT_DIR, "prod.keys")
 class Config:
     ryujinx_dir: str | None
     yuzu_dir: str | None
-    nsp_dir: list[str] | None
+    update_nsp_dir: list[str] | None
+    dlc_nsp_dir: list[str] | None
     hactoolnet: str
     title_keys: str
     versions_json: str | None
@@ -47,8 +48,10 @@ def _resolve(base_dir: str, value: str | None) -> str | None:
     return os.path.normpath(os.path.join(base_dir, value))
 
 
-def _resolve_dir_list(base_dir: str, value: Any, config_path: str) -> list[str] | None:
-    """Normalize nsp_dir: accept a string or list of strings, return list or None."""
+def _resolve_dir_list(
+    base_dir: str, value: Any, config_path: str, field_name: str
+) -> list[str] | None:
+    """Normalize a dir-list field: accept a string or list of strings, return list or None."""
     if value is None or value == "":
         return None
     if isinstance(value, str):
@@ -59,14 +62,14 @@ def _resolve_dir_list(base_dir: str, value: Any, config_path: str) -> list[str] 
         for entry in value:
             if not isinstance(entry, str):
                 raise SystemExit(
-                    f"error: nsp_dir entries in {config_path} must be strings"
+                    f"error: {field_name} entries in {config_path} must be strings"
                 )
             resolved = _resolve(base_dir, entry)
             if resolved:
                 out.append(resolved)
         return out or None
     raise SystemExit(
-        f"error: nsp_dir in {config_path} must be a string or list of strings"
+        f"error: {field_name} in {config_path} must be a string or list of strings"
     )
 
 
@@ -88,7 +91,8 @@ def load(path: str | None) -> Config:
         return Config(
             ryujinx_dir=None,
             yuzu_dir=None,
-            nsp_dir=None,
+            update_nsp_dir=None,
+            dlc_nsp_dir=None,
             hactoolnet=DEFAULT_HACTOOLNET,
             title_keys=DEFAULT_TITLE_KEYS,
             versions_json=None,
@@ -104,13 +108,24 @@ def load(path: str | None) -> Config:
     paths = data.get("paths", {})
     base_dir = os.path.dirname(os.path.realpath(config_path))
 
+    if "nsp_dir" in paths:
+        raise SystemExit(
+            f"error: 'nsp_dir' in {config_path} is no longer supported; "
+            f"split into 'update_nsp_dir' (for updates) and 'dlc_nsp_dir' (for DLCs)"
+        )
+
     hactoolnet = _resolve(base_dir, paths.get("hactoolnet")) or DEFAULT_HACTOOLNET
     title_keys = _resolve(base_dir, paths.get("title_keys")) or DEFAULT_TITLE_KEYS
 
     config = Config(
         ryujinx_dir=_resolve(base_dir, paths.get("ryujinx_dir")),
         yuzu_dir=_resolve(base_dir, paths.get("yuzu_dir")),
-        nsp_dir=_resolve_dir_list(base_dir, paths.get("nsp_dir"), config_path),
+        update_nsp_dir=_resolve_dir_list(
+            base_dir, paths.get("update_nsp_dir"), config_path, "update_nsp_dir"
+        ),
+        dlc_nsp_dir=_resolve_dir_list(
+            base_dir, paths.get("dlc_nsp_dir"), config_path, "dlc_nsp_dir"
+        ),
         hactoolnet=hactoolnet,
         title_keys=title_keys,
         versions_json=_resolve(base_dir, paths.get("versions_json")),

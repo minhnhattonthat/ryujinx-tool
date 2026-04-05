@@ -35,10 +35,10 @@ def _resolve_versions_path(config: Config) -> str:
 
 
 def run(config: Config) -> None:
-    nsp_dirs: list[str] = config.require("nsp_dir")
+    nsp_dirs: list[str] = config.require("update_nsp_dir")
     for d in nsp_dirs:
         if not os.path.isdir(d):
-            raise SystemExit(f"error: nsp_dir does not exist: {d}")
+            raise SystemExit(f"error: update_nsp_dir does not exist: {d}")
 
     path = _resolve_versions_path(config)
     print("Exporting updates.csv")

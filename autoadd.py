@@ -12,18 +12,25 @@ from util import progress_bar
 
 
 def run(config: Config) -> None:
-    nsp_dirs: list[str] = config.require("nsp_dir")
     ryujinx_dir = config.require("ryujinx_dir")
 
-    for d in nsp_dirs:
+    update_dirs: list[str] = config.update_nsp_dir or []
+    dlc_dirs: list[str] = config.dlc_nsp_dir or []
+    if not update_dirs and not dlc_dirs:
+        raise SystemExit(
+            f"error: autoadd requires 'update_nsp_dir' and/or 'dlc_nsp_dir' "
+            f"in [paths] of {config.config_path}"
+        )
+
+    for d in (*update_dirs, *dlc_dirs):
         if not os.path.isdir(d):
-            raise SystemExit(f"error: nsp_dir does not exist: {d}")
+            raise SystemExit(f"error: nsp directory does not exist: {d}")
 
     ryujinx_update_json_map: dict[str, dict] = {}
     ryujinx_dlc_json_map: dict[str, list] = {}
 
     nsp_files: list[str] = []
-    for d in nsp_dirs:
+    for d in (*update_dirs, *dlc_dirs):
         nsp_files.extend(glob.glob(os.path.join(d, "**", "*.nsp"), recursive=True))
     total_files = len(nsp_files)
     for index, nsp_file in enumerate(nsp_files):
