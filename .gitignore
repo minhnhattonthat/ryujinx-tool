@@ -9,3 +9,4 @@ versions.json
 docs/*
 *.bat
 config.ini
+__pycache__/*
