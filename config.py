@@ -73,7 +73,10 @@ def load(path: str | None) -> Config:
         )
 
     with open(config_path, "rb") as f:
-        data = tomllib.load(f)
+        try:
+            data = tomllib.load(f)
+        except tomllib.TOMLDecodeError as e:
+            raise SystemExit(f"error: invalid TOML in {config_path}: {e}")
 
     paths = data.get("paths", {})
     base_dir = os.path.dirname(os.path.realpath(config_path))
