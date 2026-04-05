@@ -165,6 +165,12 @@ def run(config: Config, priority: str, simulate: bool) -> None:
     )
     ryujinx_save_dir = os.path.join(ryujinx_dir, "bis", "user", "save")
 
+    if not os.path.isdir(yuzu_save_dir):
+        raise SystemExit(
+            f"error: yuzu save directory not found at {yuzu_save_dir} "
+            f"(check yuzu_dir in config and that yuzu has at least one save)"
+        )
+
     title_id_list = os.listdir(yuzu_save_dir)
     if not simulate:
         imkvdb.add_entries(ryujinx_dir, title_id_list)
