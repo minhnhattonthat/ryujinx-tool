@@ -9,6 +9,7 @@ per-action via Config.require().
 import os
 import tomllib
 from dataclasses import dataclass
+from typing import Any
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -23,13 +24,13 @@ DEFAULT_TITLE_KEYS = os.path.join(SCRIPT_DIR, "prod.keys")
 class Config:
     ryujinx_dir: str | None
     yuzu_dir: str | None
-    nsp_dir: str | None
+    nsp_dir: list[str] | None
     hactoolnet: str
     title_keys: str
     versions_json: str | None
     config_path: str  # for error messages
 
-    def require(self, field: str) -> str:
+    def require(self, field: str) -> Any:
         value = getattr(self, field)
         if value is None:
             raise SystemExit(
@@ -44,6 +45,29 @@ def _resolve(base_dir: str, value: str | None) -> str | None:
     if os.path.isabs(value):
         return value
     return os.path.normpath(os.path.join(base_dir, value))
+
+
+def _resolve_dir_list(base_dir: str, value: Any, config_path: str) -> list[str] | None:
+    """Normalize nsp_dir: accept a string or list of strings, return list or None."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, str):
+        resolved = _resolve(base_dir, value)
+        return [resolved] if resolved else None
+    if isinstance(value, list):
+        out: list[str] = []
+        for entry in value:
+            if not isinstance(entry, str):
+                raise SystemExit(
+                    f"error: nsp_dir entries in {config_path} must be strings"
+                )
+            resolved = _resolve(base_dir, entry)
+            if resolved:
+                out.append(resolved)
+        return out or None
+    raise SystemExit(
+        f"error: nsp_dir in {config_path} must be a string or list of strings"
+    )
 
 
 def load(path: str | None) -> Config:
@@ -86,7 +110,7 @@ def load(path: str | None) -> Config:
     config = Config(
         ryujinx_dir=_resolve(base_dir, paths.get("ryujinx_dir")),
         yuzu_dir=_resolve(base_dir, paths.get("yuzu_dir")),
-        nsp_dir=_resolve(base_dir, paths.get("nsp_dir")),
+        nsp_dir=_resolve_dir_list(base_dir, paths.get("nsp_dir"), config_path),
         hactoolnet=hactoolnet,
         title_keys=title_keys,
         versions_json=_resolve(base_dir, paths.get("versions_json")),

@@ -12,16 +12,19 @@ from util import progress_bar
 
 
 def run(config: Config) -> None:
-    nsp_dir = config.require("nsp_dir")
+    nsp_dirs: list[str] = config.require("nsp_dir")
     ryujinx_dir = config.require("ryujinx_dir")
 
-    if not os.path.isdir(nsp_dir):
-        raise SystemExit(f"error: nsp_dir does not exist: {nsp_dir}")
+    for d in nsp_dirs:
+        if not os.path.isdir(d):
+            raise SystemExit(f"error: nsp_dir does not exist: {d}")
 
     ryujinx_update_json_map: dict[str, dict] = {}
     ryujinx_dlc_json_map: dict[str, list] = {}
 
-    nsp_files = glob.glob(os.path.join(nsp_dir, "**", "*.nsp"), recursive=True)
+    nsp_files: list[str] = []
+    for d in nsp_dirs:
+        nsp_files.extend(glob.glob(os.path.join(d, "**", "*.nsp"), recursive=True))
     total_files = len(nsp_files)
     for index, nsp_file in enumerate(nsp_files):
         progress_bar(index + 1, total_files, suffix=f"\nProcessing {nsp_file}")
