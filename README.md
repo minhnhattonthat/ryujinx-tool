@@ -11,7 +11,7 @@ A tool for better manage Ryujinx
 
 ## Configuration
 
-`ryujinx_tool` reads paths from `config.toml` next to the script. Copy `config.toml.example` to `config.toml` and fill in the paths:
+`ryujinx_tool` reads paths from `config.ini` next to the script. Copy `config.ini.example` to `config.ini` and fill in the paths (the file uses TOML syntax):
 
 ```toml
 [paths]
@@ -44,13 +44,13 @@ actions (requires at least one):
 options:
   -h, --help            show this help message and exit
   -v, --version         show program's version number and exit
-  --config <file>       Path to TOML config file (default: config.toml next to script)
+  --config <file>       Path to config file (default: config.ini next to script)
   --nspfile <file>      Game NSP path (required by list actions)
 ```
 
 ## Examples
 
-Automatically add all updates & DLC files in a folder (paths come from config.toml):
+Automatically add all updates & DLC files in a folder (paths come from config.ini):
 
 ```
 python ryujinx_tool.py -a

@@ -1,5 +1,5 @@
 # ryujinx_tool configuration.
-# Copy this file to config.toml and edit the paths.
+# Copy this file to config.ini and edit the paths.
 # Relative paths are resolved relative to this config file's directory.
 
 [paths]

@@ -1,7 +1,7 @@
 """ryujinx_tool: a tool for better managing Ryujinx.
 
-Configuration (paths) lives in config.toml next to this script.
-See config.toml.example.
+Configuration (paths) lives in config.ini next to this script.
+See config.ini.example.
 """
 
 # pylint: disable=C0116

@@ -1,9 +1,9 @@
 """Configuration loading for ryujinx_tool.
 
-Reads a TOML config file (default: config.toml next to the script) and
-exposes a frozen Config dataclass. Paths are resolved relative to the
-config file's directory. Field validation happens per-action via
-Config.require().
+Reads a TOML-formatted config file (default: config.ini next to the
+script) and exposes a frozen Config dataclass. Paths are resolved
+relative to the config file's directory. Field validation happens
+per-action via Config.require().
 """
 
 import os
@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-DEFAULT_CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.toml")
+DEFAULT_CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.ini")
 DEFAULT_HACTOOLNET = os.path.join(
     SCRIPT_DIR, "hactoolnet.exe" if os.name == "nt" else "hactoolnet"
 )
