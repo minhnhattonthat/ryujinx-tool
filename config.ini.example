@@ -9,7 +9,7 @@ ryujinx_dir = "C:/path/to/Ryujinx/filesystem"
 # Required for: syncsaves, listyuzuncas
 yuzu_dir = "C:/path/to/yuzu/user"
 
-# Required for: autoadd, exportupdates, syncsaves
+# Required for: autoadd, exportupdates
 nsp_dir = "C:/path/to/nsp/updates-and-dlcs"
 
 # Optional — defaults to hactoolnet(.exe) next to ryujinx_tool.py

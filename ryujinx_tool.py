@@ -46,7 +46,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Sync saves between yuzu and Ryujinx.\n"
             "Priority: yuzu, ryujinx, or newer. Prefix '~' for simulate mode.\n"
-            "Requires ryujinx_dir, yuzu_dir, nsp_dir in config."
+            "Requires ryujinx_dir, yuzu_dir in config."
         ),
     )
     actions.add_argument(
