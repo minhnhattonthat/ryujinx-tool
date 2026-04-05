@@ -81,15 +81,11 @@ def _sync_dir(
     title_id: str,
     priority: str,
     simulate: bool,
-    nsp_dir: str,
 ) -> None:
     log_suffix = "- [Simulate]" if simulate else "-"
     reason = "Unknown error."
     src: str | None = None
     dst: str | None = None
-    title = next(
-        (t for t in os.listdir(nsp_dir) if title_id.lower() in t.lower()), None
-    )
 
     if "yuzu" in priority:
         src = yuzu_game_save_dir
@@ -141,21 +137,19 @@ def _sync_dir(
         else:
             reason = "yuzu & Ryujinx saves are synced."
 
-    label = title if title is not None else title_id
     if src is not None and dst is not None:
         if not simulate:
             os.makedirs(dst, exist_ok=True)
             _back_up_save(dst)
             shutil.copytree(src, dst, dirs_exist_ok=True)
-        print(log_suffix, label, reason, f"Copy from\n\t{src} to\n\t{dst}.")
+        print(log_suffix, title_id, reason, f"Copy from\n\t{src} to\n\t{dst}.")
     else:
-        print(log_suffix, label, reason)
+        print(log_suffix, title_id, reason)
 
 
 def run(config: Config, priority: str, simulate: bool) -> None:
     ryujinx_dir = config.require("ryujinx_dir")
     yuzu_dir = config.require("yuzu_dir")
-    nsp_dir = config.require("nsp_dir")
 
     print("Syncing saves")
 
@@ -182,7 +176,7 @@ def run(config: Config, priority: str, simulate: bool) -> None:
     for index, (title_id, ryujinx_save_dirname) in enumerate(save_map.items()):
         yuzu_game_save_dir = os.path.join(yuzu_save_dir, title_id.upper())
         ryujinx_game_save_dir = os.path.join(ryujinx_save_dir, ryujinx_save_dirname, "0")
-        _sync_dir(yuzu_game_save_dir, ryujinx_game_save_dir, title_id, priority, simulate, nsp_dir)
+        _sync_dir(yuzu_game_save_dir, ryujinx_game_save_dir, title_id, priority, simulate)
         progress_bar(index + 1, total_saves)
 
     print("Saves synced")
