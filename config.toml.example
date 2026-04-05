@@ -1,0 +1,22 @@
+# ryujinx_tool configuration.
+# Copy this file to config.toml and edit the paths.
+# Relative paths are resolved relative to this config file's directory.
+
+[paths]
+# Required for: autoadd, syncsaves, listyuzuncas, listryujnxnsps
+ryujinx_dir = "C:/path/to/Ryujinx/filesystem"
+
+# Required for: syncsaves, listyuzuncas
+yuzu_dir = "C:/path/to/yuzu/user"
+
+# Required for: autoadd, exportupdates, syncsaves
+nsp_dir = "C:/path/to/nsp/updates-and-dlcs"
+
+# Optional — defaults to hactoolnet(.exe) next to ryujinx_tool.py
+# hactoolnet = "./hactoolnet.exe"
+
+# Optional — defaults to prod.keys next to ryujinx_tool.py
+# title_keys = "./prod.keys"
+
+# Optional — for exportupdates. Leave unset to auto-download from titledb.
+# versions_json = "./versions.json"

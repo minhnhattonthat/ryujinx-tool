@@ -8,3 +8,4 @@ versions.json
 .claude/*
 docs/*
 *.bat
+config.toml
