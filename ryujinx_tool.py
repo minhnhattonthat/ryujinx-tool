@@ -12,7 +12,7 @@ import sys
 import config as config_module
 
 
-VERSION = "v0.5.0"
+VERSION = "v0.6.0"
 
 # Fix powershell cannot print unicode characters
 sys.stdout.reconfigure(encoding="utf-8")
