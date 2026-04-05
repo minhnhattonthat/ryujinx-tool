@@ -7,7 +7,6 @@ Config.require().
 """
 
 import os
-import sys
 import tomllib
 from dataclasses import dataclass
 

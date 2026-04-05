@@ -74,17 +74,17 @@ def add_entries(ryujinx_dir: str, title_id_list: list[str]) -> None:
     Creates a timestamped .bk backup first and prunes backups to the last 5.
     Also updates lastPublishedId to the highest new index.
     """
-    state = read(ryujinx_dir)
-    new_last_index = state.last_index
-    existing = state.save_map.keys()
-    new_title_ids = [tid for tid in title_id_list if tid.lower() not in existing]
-    new_total_entries = len(state.key_value_list) + len(new_title_ids)
-
     root = _imkvdb_root(ryujinx_dir)
     path = _imkvdb_path(ryujinx_dir)
 
     if not os.path.isfile(path):
         raise FileNotFoundError("imkvdb.arc not existed")
+
+    state = read(ryujinx_dir)
+    new_last_index = state.last_index
+    existing = state.save_map.keys()
+    new_title_ids = [tid for tid in title_id_list if tid.lower() not in existing]
+    new_total_entries = len(state.key_value_list) + len(new_title_ids)
 
     current_timestamp = int(datetime.now().timestamp() * 1000)
     backup_path = os.path.join(root, f"imkvdb-{current_timestamp}.arc.bk")
@@ -129,11 +129,12 @@ def sort_entries(ryujinx_dir: str) -> None:
 
     Ryujinx crashes on unsorted entries.
     """
-    state = read(ryujinx_dir)
     path = _imkvdb_path(ryujinx_dir)
 
     if not os.path.isfile(path):
         raise FileNotFoundError("imkvdb.arc not existed")
+
+    state = read(ryujinx_dir)
 
     def compare_key(item1: dict, item2: dict) -> int:
         k1 = item1["key"][:16]
