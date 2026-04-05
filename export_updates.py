@@ -93,7 +93,7 @@ def run(config: Config) -> None:
             latest_version_code = latest_version[0]
             latest_version_date = latest_version[1]
             is_update_available = latest_version_code != version_code
-        except KeyError:
+        except (KeyError, AttributeError):
             print(f"{filename} data not found")
         output_csv += f'"{filename}", {title_id}, {version_code}, {latest_version_code}, {latest_version_date}, {is_update_available}\n'
 
