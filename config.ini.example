@@ -1,22 +1,26 @@
 # ryujinx_tool configuration.
 # Copy this file to config.ini and edit the paths.
 # Relative paths are resolved relative to this config file's directory.
+#
+# Windows paths: use SINGLE quotes (literal strings) so backslashes work
+# as-is, or use forward slashes inside double quotes. Double-quoted
+# strings treat '\' as an escape character.
 
 [paths]
 # Required for: autoadd, syncsaves, listyuzuncas, listryujnxnsps
-ryujinx_dir = "C:/path/to/Ryujinx/filesystem"
+ryujinx_dir = 'C:\path\to\Ryujinx\filesystem'
 
 # Required for: syncsaves, listyuzuncas
-yuzu_dir = "C:/path/to/yuzu/user"
+yuzu_dir = 'C:\path\to\yuzu\user'
 
 # Required for: autoadd, exportupdates
-nsp_dir = "C:/path/to/nsp/updates-and-dlcs"
+nsp_dir = 'C:\path\to\nsp\updates-and-dlcs'
 
 # Optional — defaults to hactoolnet(.exe) next to ryujinx_tool.py
-# hactoolnet = "./hactoolnet.exe"
+# hactoolnet = './hactoolnet.exe'
 
 # Optional — defaults to prod.keys next to ryujinx_tool.py
-# title_keys = "./prod.keys"
+# title_keys = './prod.keys'
 
 # Optional — for exportupdates. Leave unset to auto-download from titledb.
-# versions_json = "./versions.json"
+# versions_json = './versions.json'

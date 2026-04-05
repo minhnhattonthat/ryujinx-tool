@@ -15,13 +15,15 @@ A tool for better manage Ryujinx
 
 ```toml
 [paths]
-ryujinx_dir   = "C:/path/to/Ryujinx/filesystem"
-yuzu_dir      = "C:/path/to/yuzu/user"
-nsp_dir       = "C:/path/to/nsp/updates-and-dlcs"
-# hactoolnet  = "./hactoolnet.exe"  # optional, default: next to script
-# title_keys  = "./prod.keys"       # optional, default: next to script
-# versions_json = "./versions.json" # optional, auto-downloaded if unset
+ryujinx_dir   = 'C:\path\to\Ryujinx\filesystem'
+yuzu_dir      = 'C:\path\to\yuzu\user'
+nsp_dir       = 'C:\path\to\nsp\updates-and-dlcs'
+# hactoolnet  = './hactoolnet.exe'   # optional, default: next to script
+# title_keys  = './prod.keys'        # optional, default: next to script
+# versions_json = './versions.json'  # optional, auto-downloaded if unset
 ```
+
+Windows paths use **single quotes** (TOML literal strings) so backslashes work as-is. Double-quoted strings would require forward slashes or doubled backslashes.
 
 Use `--config <file>` to point at a different config file.
 
