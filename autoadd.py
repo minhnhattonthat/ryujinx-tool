@@ -35,7 +35,9 @@ def run(config: Config) -> None:
 
         if info.kind == "patch":
             app_id = info.application_id
-            update_json = ryujinx_update_json_map.get(app_id) or {"selected": None, "paths": []}
+            update_json = ryujinx_update_json_map.get(app_id)
+            if update_json is None:
+                update_json = {"selected": None, "paths": []}
             update_json["selected"] = nsp_file
             update_json["paths"].append(nsp_file)
             ryujinx_update_json_map[app_id] = update_json
@@ -55,13 +57,15 @@ def run(config: Config) -> None:
                     }
                 ],
             }
-            dlc_list = ryujinx_dlc_json_map.get(info.application_id) or []
+            dlc_list = ryujinx_dlc_json_map.get(info.application_id)
+            if dlc_list is None:
+                dlc_list = []
             dlc_list.append(dlc_entry)
             ryujinx_dlc_json_map[info.application_id] = dlc_list
 
     print("Exporting updates.json")
     total_updates = len(ryujinx_update_json_map.items())
-    for index, (application_id, update_jsons) in enumerate(ryujinx_update_json_map.items()):
+    for index, (application_id, update_json) in enumerate(ryujinx_update_json_map.items()):
         output_dir = os.path.join(ryujinx_dir, "games", application_id)
         progress_bar(
             index + 1,
@@ -70,12 +74,12 @@ def run(config: Config) -> None:
         )
         os.makedirs(output_dir, exist_ok=True)
         with io.open(os.path.join(output_dir, "updates.json"), "w", encoding="utf-8") as f:
-            f.write(json.dumps(update_jsons, indent=2))
+            f.write(json.dumps(update_json, indent=2))
     print("\nFinished exporting updates.json")
 
     print("Exporting dlc.json")
     total_dlcs = len(ryujinx_dlc_json_map.items())
-    for index, (application_id, dlc_jsons) in enumerate(ryujinx_dlc_json_map.items()):
+    for index, (application_id, dlc_json) in enumerate(ryujinx_dlc_json_map.items()):
         output_dir = os.path.join(ryujinx_dir, "games", application_id)
         progress_bar(
             index + 1,
@@ -84,5 +88,5 @@ def run(config: Config) -> None:
         )
         os.makedirs(output_dir, exist_ok=True)
         with io.open(os.path.join(output_dir, "dlc.json"), "w", encoding="utf-8") as f:
-            f.write(json.dumps(dlc_jsons, indent=2))
+            f.write(json.dumps(dlc_json, indent=2))
     print("\nFinished exporting dlc.json")
