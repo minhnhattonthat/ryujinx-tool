@@ -1,7 +1,9 @@
 """exportupdates action: emit updates.csv with update-available status.
 
 Downloads versions.json from titledb if not provided and not cached next
-to the script.
+to the script. The auto-managed cache is refreshed once its mtime is
+older than VERSIONS_STALE_SECONDS; on download failure a stale cache is
+used as a fallback so the action still works offline.
 """
 
 import glob
@@ -10,6 +12,8 @@ import json
 import os
 import re
 import subprocess
+import time
+import urllib.error
 import urllib.request
 from subprocess import CalledProcessError
 
@@ -19,6 +23,13 @@ from util import progress_bar
 
 LOCAL_VERSIONS_PATH = os.path.join(SCRIPT_DIR, "versions.json")
 VERSIONS_URL = "https://github.com/blawar/titledb/raw/master/versions.json"
+VERSIONS_STALE_SECONDS = 24 * 60 * 60  # 1 day
+
+
+def _cache_is_fresh(path: str) -> bool:
+    if not os.path.isfile(path):
+        return False
+    return time.time() - os.path.getmtime(path) < VERSIONS_STALE_SECONDS
 
 
 def _resolve_versions_path(config: Config) -> str:
@@ -26,10 +37,19 @@ def _resolve_versions_path(config: Config) -> str:
         if not os.path.isfile(config.versions_json):
             raise SystemExit(f"error: versions_json file not found: {config.versions_json}")
         return config.versions_json
-    if os.path.isfile(LOCAL_VERSIONS_PATH):
+
+    if _cache_is_fresh(LOCAL_VERSIONS_PATH):
         return LOCAL_VERSIONS_PATH
+
+    # Cache missing or stale — try to refresh.
     print("Downloading versions.json")
-    result = urllib.request.urlretrieve(VERSIONS_URL, LOCAL_VERSIONS_PATH)
+    try:
+        result = urllib.request.urlretrieve(VERSIONS_URL, LOCAL_VERSIONS_PATH)
+    except (urllib.error.URLError, TimeoutError) as e:
+        if os.path.isfile(LOCAL_VERSIONS_PATH):
+            print(f"Download failed ({e}); using stale cache at {LOCAL_VERSIONS_PATH}")
+            return LOCAL_VERSIONS_PATH
+        raise SystemExit(f"error: failed to download versions.json: {e}")
     print(f"Downloaded to {result[0]}")
     return result[0]
 
